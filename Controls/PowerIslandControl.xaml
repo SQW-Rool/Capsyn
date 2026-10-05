@@ -27,6 +27,13 @@
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
         </Style>
+
+        <!-- 「关闭程序」是唯一真正生效的动作，标红让它醒目一点（红底 + 红字） -->
+        <Style x:Key="PowerActionDangerButton" TargetType="Button" BasedOn="{StaticResource PowerActionButton}">
+            <Setter Property="Background" Value="#2EFF453A" />
+            <Setter Property="BorderBrush" Value="#66FF453A" />
+            <Setter Property="Foreground" Value="#FFFF7A72" />
+        </Style>
     </UserControl.Resources>
 
     <!--
@@ -67,8 +74,19 @@
                 x:Name="ExitButton"
                 Grid.Column="3"
                 Content="关闭程序"
-                Style="{StaticResource PowerActionButton}"
-                Click="OnExitClick" />
+                Style="{StaticResource PowerActionDangerButton}"
+                Click="OnExitClick">
+
+                <!-- 这个按钮的指针态也走红色系，悬停时不会变回白灰 -->
+                <Button.Resources>
+                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#40FF453A" />
+                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#52FF453A" />
+                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFFF9A93" />
+                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#FFFFC2BD" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#80FF453A" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#99FF453A" />
+                </Button.Resources>
+            </Button>
         </Grid>
     </Grid>
 </UserControl>
