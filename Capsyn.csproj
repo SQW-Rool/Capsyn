@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Capsyn —— Windows「灵动岛」。
+    Windows App SDK / WinUI 3，C#，Unpackaged（未打包）：
+      * WindowsPackageType=None → 不需要 MSIX 打包、不需要签名，直接跑 exe。
+      * 生成的 WindowsAppSdkBootstrapInitialize 会自动引导本机已安装的 Windows App Runtime。
+      * EnableMsixTooling=false → 保留 MRT Core 的 PRI 生成（未打包应用需要 Capsyn.pri）。
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>Capsyn</RootNamespace>
+    <AssemblyName>Capsyn</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <!-- WinAppSDK 的原生依赖是分架构的，这里固定本机 x64。 -->
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <!-- WinUI/WinAppSDK 会给 RuntimeIdentifiers 注入 win-x86;win-x64;win-arm64。
+         本机只跑 x64，这里显式收窄，免得 restore 去要另外两个架构的包。 -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <!-- .NET 运行时用系统已装的框架依赖版本（本机已安装 .NET 9 桌面运行时）。 -->
+    <SelfContained>false</SelfContained>
+    <!--
+      离线构建的关键开关：框架依赖（SelfContained=false）的构建不需要 RID 专用「运行时包」，
+      但 .NET SDK 默认会把它们写进 restore 的下载依赖：
+        Microsoft.NETCore.App.Runtime.win-*
+        Microsoft.WindowsDesktop.App.Runtime.win-*   （FrameworkReference 里并没有它，属于「传递」下载）
+        Microsoft.AspNetCore.App.Runtime.win-*       （同上）
+      本机缓存里没有这些包 → Visual Studio（Framework MSBuild，把它们当 PackageReference）
+      会报一片 NU1100；dotnet CLI（Core MSBuild，当 PackageDownload）只是记成警告。
+      关掉下载后只用本机已安装的 targeting pack / apphost pack，CLI 和 VS 都不会再报错。
+    -->
+    <EnableRuntimePackDownload>false</EnableRuntimePackDownload>
+    <DisableTransitiveFrameworkReferenceDownloads>true</DisableTransitiveFrameworkReferenceDownloads>
+    <!-- Windows App Runtime 1.8 已安装在本机，所以不需要自带 WinAppSDK 运行时。
+         如果换到没装运行时的机器，把下面这行改成 true 再 build 即可。 -->
+    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
+    <!-- Windows App Runtime 1.8 已安装在本机，所以不需要自带 WinAppSDK 运行时。
+         如果换到没装运行时的机器，把下面这行改成 true 再 build 即可。 -->
+    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
+
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <EnableMsixTooling>false</EnableMsixTooling>
+
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.250916003" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Capsyn.Controls.TimeIslandControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <!--
+        「时间岛」本体：黑色超圆角胶囊 + 居中的 HH:mm:ss。
+        圆角半径由 ViewModel 依配置算出（= 高度 / 2），窗口本身透明，所以看起来就是一个悬浮的胶囊。
+
+        TODO(扩展): 把这个 Border 换成 / 包一层可展开的容器，
+                    在 OnIslandTapped / 状态变化时做 Width/Height + CornerRadius 的展开动画（Storyboard 或 Composition）。
+    -->
+    <Border
+        x:Name="PillRoot"
+        Background="{x:Bind ViewModel.PillBrush}"
+        CornerRadius="{x:Bind ViewModel.PillCornerRadius}">
+
+        <!-- TODO(扩展): 展开后这里会变成多列布局：左侧图标 / 中间时间 / 右侧音乐波形等。 -->
+        <TextBlock
+            x:Name="TimeText"
+            Text="{x:Bind ViewModel.CurrentTime, Mode=OneWay}"
+            FontFamily="{x:Bind ViewModel.FontFamily}"
+            FontSize="{x:Bind ViewModel.FontSize}"
+            FontWeight="SemiBold"
+            Foreground="{x:Bind ViewModel.ForegroundBrush}"
+            IsTextScaleFactorEnabled="False"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            TextAlignment="Center" />
+    </Border>
+</UserControl>

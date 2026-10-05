@@ -1,14 +1,13 @@
-*.tar
-*.tar.*
-*.jar
-*.exe
-*.msi
-*.deb
-*.zip
-*.tgz
-*.log
-*.log.*
-*.sig
+# Build output
+bin/
+obj/
 
-pkg/
-src/
+# 本机沙箱/构建用的临时目录（不属于项目源码）
+.tools/
+probe*.txt
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+*.user
+*.suo
