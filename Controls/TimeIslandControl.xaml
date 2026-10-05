@@ -8,18 +8,12 @@
     mc:Ignorable="d">
 
     <!--
-        「时间岛」本体：黑色超圆角胶囊 + 居中的 HH:mm:ss。
-        圆角半径由 ViewModel 依配置算出（= 高度 / 2），窗口本身透明，所以看起来就是一个悬浮的胶囊。
+        时间岛：只画 HH:mm:ss。
+        黑色胶囊的形状由 IslandShell 的底板 + 窗口区域给出（胶囊以外不算窗口），所以这里不需要背景。
 
-        TODO(扩展): 把这个 Border 换成 / 包一层可展开的容器，
-                    在 OnIslandTapped / 状态变化时做 Width/Height + CornerRadius 的展开动画（Storyboard 或 Composition）。
+        TODO(扩展): 展开后这里可以再放状态图标（免打扰 / 计时中 / 正在播放）等。
     -->
-    <Border
-        x:Name="PillRoot"
-        Background="{x:Bind ViewModel.PillBrush}"
-        CornerRadius="{x:Bind ViewModel.PillCornerRadius}">
-
-        <!-- TODO(扩展): 展开后这里会变成多列布局：左侧图标 / 中间时间 / 右侧音乐波形等。 -->
+    <Grid Background="{x:Null}">
         <TextBlock
             x:Name="TimeText"
             Text="{x:Bind ViewModel.CurrentTime, Mode=OneWay}"
@@ -31,5 +25,5 @@
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             TextAlignment="Center" />
-    </Border>
+    </Grid>
 </UserControl>

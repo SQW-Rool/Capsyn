@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Capsyn.Controls.IslandShell"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Capsyn.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <!--
+        「岛」的外壳：一块画布（比看板/电源岛略大，给弹簧回弹留余量），里面四层
+          1) 整块铺满的纯黑底板 —— 可见形状完全由窗口区域裁出来，回弹/生长时都不会露白底
+          2) 看板岛内容 —— Composition 动画：淡入 + 弹性放大 + 卡片逐个上浮
+          3) 电源岛内容 —— 鼠标移到看板岛的「电源」按钮上才出现，挂在看板岛下方
+          4) 时钟 —— 始终可见
+
+        可见形状（圆角、缝隙、生长与回弹中的轮廓）由窗口区域逐帧裁剪给出：
+        WinUI 客户区是不透明的，所以「底板铺满 + 区域裁剪」是唯一不露白的办法。
+        尺寸都在代码里按 IslandOptions 设置。
+    -->
+    <Grid x:Name="ShellRoot" Background="{x:Null}">
+
+        <!-- 1) 纯黑底板：铺满整个窗口（默认 Stretch） -->
+        <Border x:Name="IslandBackdrop" Background="#FF000000" />
+
+        <!-- 2) 看板岛内容 -->
+        <controls:DashboardIslandControl
+            x:Name="Dashboard"
+            Opacity="0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top" />
+
+        <!-- 3) 电源岛内容 -->
+        <controls:PowerIslandControl
+            x:Name="PowerIsland"
+            Opacity="0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top" />
+
+        <!-- 4) 时钟：收起/展开都在最上层，位置不变 -->
+        <controls:TimeIslandControl
+            x:Name="Clock"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top" />
+    </Grid>
+</UserControl>

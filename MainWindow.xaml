@@ -6,13 +6,9 @@
     xmlns:controls="using:Capsyn.Controls">
 
     <!--
-        窗口本体完全透明（Background="Transparent"），
-        可见的只有 TimeIslandControl 里的黑色胶囊 —— 配合窗口的 DWM 帧扩展实现圆角外透明。
-
-        TODO(扩展): 展开态/通知/音乐卡片的布局都挂在这个 Grid 里，
-                    用 VisualState 或 Storyboard 在「胶囊态 / 展开态」之间切换。
+        窗口里只放一个「岛壳」：
+        形状、位置、置顶、不进任务栏这些系统行为在 IslandWindowStyler 里，
+        展开/收起状态机与 Composition 动画在 IslandShell 里。
     -->
-    <Grid x:Name="RootGrid" Background="Transparent">
-        <controls:TimeIslandControl x:Name="TimeIsland" />
-    </Grid>
+    <controls:IslandShell x:Name="Island" />
 </Window>

@@ -8,12 +8,15 @@ using Windows.Graphics;
 namespace Capsyn.Services;
 
 /// <summary>
-/// 悬浮胶囊窗口的「系统行为」都收在这里，方便以后替换/扩展：
+/// 悬浮岛窗口的「系统行为」都收在这里：
 ///   * 无边框、无标题栏、不可缩放
 ///   * 不出现在任务栏、不出现在 Alt+Tab（IsShownInSwitchers = false + WS_EX_TOOLWINDOW）
 ///   * 始终置顶（OverlappedPresenter.IsAlwaysOnTop = true → WS_EX_TOPMOST）
-///   * 窗口本身不画任何背景：圆角以外直接透出桌面
-///     （透明页面背景 + DWM 帧扩展保留 per-pixel alpha + 窗口区域裁成胶囊）
+///   * 窗口大小固定为「看板尺寸」这块画布，可见轮廓完全由窗口区域裁出来：
+///       - 收起时区域 = 顶部居中的胶囊
+///       - 展开时区域 = 胶囊 ∪ 下方看板（两块圆角矩形并集）
+///       - 动画过程中由 <see cref="UpdateIslandShape"/> 逐帧跟着弹簧变形
+///     （WinUI 3 的客户区是不透明的，圆角以外必须靠区域裁掉，否则会露白）
 ///   * 启动时在主屏顶部居中算一次位置，然后用窗口子类化把位置焊死
 /// </summary>
 internal sealed class IslandWindowStyler
@@ -38,6 +41,16 @@ internal sealed class IslandWindowStyler
     private int _width;
     private int _height;
 
+    /// <summary>窗口所在显示器的缩放比例（DIP → 物理像素）。</summary>
+    private double _scale = 1.0;
+
+    // 上一次提交给系统的形状，避免每帧都做重复的 SetWindowRgn。
+    private int _lastPillKey = -1;
+    private int _lastPanelWidth = -1;
+    private int _lastPanelHeight = -1;
+    private int _lastPowerWidth = -1;
+    private int _lastPowerHeight = -1;
+
     public IslandWindowStyler(Window window, IntPtr hwnd, IslandOptions options)
     {
         _hwnd = hwnd;
@@ -46,8 +59,11 @@ internal sealed class IslandWindowStyler
         _subclassProc = OnSubclassMessage;
     }
 
+    /// <summary>窗口矩形（物理像素）。岛的悬停判定需要它。</summary>
+    public RectInt32 WindowRect => new(_x, _y, _width, _height);
+
     /// <summary>
-    /// 显示之前的窗口装饰：无边框 + 不进切换器 + 置顶 + 透明。
+    /// 显示之前的窗口装饰：无边框 + 不进切换器 + 置顶 + 不画系统边框。
     /// 注意这里故意<strong>不</strong>设置 WS_EX_NOACTIVATE，
     /// 以免影响第一次显示（显示之后由 <see cref="ApplyPostShowPolicy"/> 补上）。
     /// </summary>
@@ -70,7 +86,7 @@ internal sealed class IslandWindowStyler
 
         // OverlappedPresenter 只去掉了标题栏和缩放框，窗口上还留着 WS_DLGFRAME / WS_SYSMENU
         // 这些「非客户区」，在浅色主题下就是一圈可见的白边，而且会把客户区缩小几个像素。
-        // 这里把它们彻底清掉：客户区 = 窗口矩形，胶囊可以铺满整个窗口，圆角外不留白边。
+        // 这里把它们彻底清掉：客户区 = 窗口矩形。
         var style = NativeMethods.GetWindowLongPtr(_hwnd, NativeMethods.GWL_STYLE).ToInt64();
         style &= ~(NativeMethods.WS_CAPTION
                    | NativeMethods.WS_BORDER
@@ -101,7 +117,7 @@ internal sealed class IslandWindowStyler
             NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER
             | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED);
 
-        // 关掉 Win11 给顶层窗口的自动圆角（形状完全由 XAML 里的 Border 决定），也不画默认阴影/描边。
+        // 关掉 Win11 给顶层窗口的自动圆角（形状完全由窗口区域决定），也不画默认阴影/描边。
         var cornerPreference = NativeMethods.DWMWCP_DONOTROUND;
         NativeMethods.DwmSetWindowAttribute(
             _hwnd,
@@ -116,8 +132,7 @@ internal sealed class IslandWindowStyler
             ref noBorder,
             sizeof(int));
 
-        // 让 DWM 把整个客户区当作「帧」：WinUI 合成结果的 per-pixel alpha 才会被尊重，
-        // 圆角边上的抗锯齿像素才能正确地和桌面混合（胶囊形状本身由 ApplyPillShape 的区域裁剪保证）。
+        // 让 DWM 把整个客户区当作「帧」：形状边缘的抗锯齿像素才能和桌面正确混合。
         var margins = new NativeMethods.MARGINS
         {
             cxLeftWidth = -1,
@@ -134,15 +149,15 @@ internal sealed class IslandWindowStyler
     }
 
     /// <summary>
-    /// 按主屏 + 当前 DPI 算一次尺寸和位置（主屏顶部居中），并应用。
-    /// 只在启动时调用一次。
+    /// 按主屏 + 当前 DPI 算一次窗口矩形（整块看板画布，主屏顶部居中），只在启动时调用一次。
+    /// 胶囊在这块画布的顶部居中，看板从胶囊下方往下生长。
     /// </summary>
-    public void ApplyPillLayout()
+    public void ApplyIslandLayout()
     {
-        var scale = NativeMethods.GetDpiForWindow(_hwnd) / 96.0;
-        if (scale <= 0)
+        _scale = NativeMethods.GetDpiForWindow(_hwnd) / 96.0;
+        if (_scale <= 0)
         {
-            scale = 1.0;
+            _scale = 1.0;
         }
 
         var display = DisplayArea.Primary;
@@ -154,35 +169,126 @@ internal sealed class IslandWindowStyler
         // OuterBounds = 整个屏幕（含任务栏区域），保证「贴着屏幕顶边」而不是贴着工作区。
         var bounds = display.OuterBounds;
 
-        _width = (int)Math.Round(_options.Width * scale);
-        _height = (int)Math.Round(_options.Height * scale);
+        _width = (int)Math.Round(_options.WindowWidth * _scale);
+        _height = (int)Math.Round(_options.WindowHeight * _scale);
         _x = bounds.X + ((bounds.Width - _width) / 2);
-        _y = bounds.Y + (int)Math.Round(_options.TopOffset * scale);
+        _y = bounds.Y + (int)Math.Round(_options.TopOffset * _scale);
 
         _appWindow.MoveAndResize(new RectInt32(_x, _y, _width, _height));
     }
 
     /// <summary>
-    /// 把窗口本身裁成胶囊形状（圆角半径 = 高度 / 2）。
-    ///
-    /// 为什么需要它：WinUI 3 的窗口客户区是不透明的（框架会用主题色把客户区填满），
-    /// 所以即使 XAML 里圆角外什么都不画，窗口矩形本身仍然是「方的」。
-    /// 用 Win32 窗口区域把矩形裁掉，圆角以外就不再属于这个窗口，
-    /// 于是无论系统是深色还是浅色主题，都不会出现白角/黑角。
-    /// 必须在 <see cref="ApplyPillLayout"/> 之后调用（尺寸已知）。
+    /// 按动画进度更新窗口区域：胶囊（固定）∪ 看板（弹簧缩放中的尺寸）。
+    /// 这是「看得见的形状」唯一来源，所以动画期间会被逐帧调用。
     /// </summary>
-    public void ApplyPillShape()
+    /// <param name="panelScaleX">看板当前 ScaleX（收起 = 胶囊宽 / 看板宽）。</param>
+    /// <param name="panelScaleY">看板当前 ScaleY（收起 = 0，展开 = 1）。</param>
+    /// <param name="powerScale">电源岛当前生长进度（收起 = 0，展开 = 1）。</param>
+    public void UpdateIslandShape(double panelScaleX, double panelScaleY, double powerScale)
     {
         if (_width <= 0 || _height <= 0)
         {
             return;
         }
 
-        // 椭圆宽高都取窗口高度 → 圆角半径 = 高度 / 2 → 胶囊。
-        var region = NativeMethods.CreateRoundRectRgn(0, 0, _width + 1, _height + 1, _height, _height);
+        var scaleX = Math.Clamp(panelScaleX, 0, 1.2);
+        var scaleY = Math.Clamp(panelScaleY, 0, 1.2);
+        var power = Math.Clamp(powerScale, 0, 1.2);
+
+        var pillWidth = (int)Math.Round(_options.Width * _scale);
+        var pillHeight = (int)Math.Round(_options.Height * _scale);
+        var pillLeft = (int)Math.Round(_options.PillLeft * _scale);
+        var pillRadius = (int)Math.Round(_options.CornerRadius * _scale);
+
+        var panelWidth = (int)Math.Round(_options.ExpandedWidth * _scale * scaleX);
+        var panelHeight = (int)Math.Round(_options.ExpandedHeight * _scale * scaleY);
+
+        // 电源岛：横向同样从胶囊宽度长起，纵向从 0 长到电源岛高度。
+        var powerWidthScale = _options.CollapsedScaleX + ((1.0 - _options.CollapsedScaleX) * power);
+        var powerWidth = (int)Math.Round(_options.PowerIslandWidth * _scale * powerWidthScale);
+        var powerHeight = (int)Math.Round(_options.PowerIslandHeight * _scale * power);
+
+        // 形状没变就不要再提交（动画期间同一像素尺寸会重复出现很多帧）。
+        var pillKey = HashCode.Combine(pillWidth, pillHeight, pillLeft, pillRadius);
+        if (pillKey == _lastPillKey
+            && panelWidth == _lastPanelWidth
+            && panelHeight == _lastPanelHeight
+            && powerWidth == _lastPowerWidth
+            && powerHeight == _lastPowerHeight)
+        {
+            return;
+        }
+
+        _lastPillKey = pillKey;
+        _lastPanelWidth = panelWidth;
+        _lastPanelHeight = panelHeight;
+        _lastPowerWidth = powerWidth;
+        _lastPowerHeight = powerHeight;
+
+        Diagnostics.Log(
+            $"region apply: pill {pillWidth}x{pillHeight} + panel {panelWidth}x{panelHeight} + power {powerWidth}x{powerHeight}");
+
+        var region = NativeMethods.CreateRoundRectRgn(
+            pillLeft,
+            0,
+            pillLeft + pillWidth + 1,
+            pillHeight + 1,
+            pillRadius * 2,
+            pillRadius * 2);
+
         if (region == IntPtr.Zero)
         {
             return;
+        }
+
+        if (panelWidth >= 2 && panelHeight >= 2)
+        {
+            // 看板圆角随生长从一个小圆角过渡到最终圆角；半径不能超过短边的一半。
+            var progress = Math.Clamp(scaleY, 0, 1);
+            var panelRadius = (int)Math.Round((10 + ((_options.ExpandedCornerRadius - 10) * progress)) * _scale);
+            panelRadius = Math.Max(1, Math.Min(panelRadius, Math.Min(panelWidth, panelHeight) / 2));
+
+            var panelLeft = (_width - panelWidth) / 2;
+            var panelTop = (int)Math.Round(_options.PanelTop * _scale);
+
+            var panelRegion = NativeMethods.CreateRoundRectRgn(
+                panelLeft,
+                panelTop,
+                panelLeft + panelWidth + 1,
+                panelTop + panelHeight + 1,
+                panelRadius * 2,
+                panelRadius * 2);
+
+            if (panelRegion != IntPtr.Zero)
+            {
+                NativeMethods.CombineRgn(region, region, panelRegion, NativeMethods.RGN_OR);
+                NativeMethods.DeleteObject(panelRegion);
+            }
+        }
+
+        // 电源岛：同样并进同一个窗口区域（挂着看板岛下方往下长）。
+        if (powerWidth >= 2 && powerHeight >= 2)
+        {
+            var progress = Math.Clamp(power, 0, 1);
+            var powerRadius = (int)Math.Round((8 + ((_options.PowerIslandCornerRadius - 8) * progress)) * _scale);
+            powerRadius = Math.Max(1, Math.Min(powerRadius, Math.Min(powerWidth, powerHeight) / 2));
+
+            var powerLeft = (_width - powerWidth) / 2;
+            var powerTop = (int)Math.Round(_options.PowerIslandTop * _scale);
+
+            var powerRegion = NativeMethods.CreateRoundRectRgn(
+                powerLeft,
+                powerTop,
+                powerLeft + powerWidth + 1,
+                powerTop + powerHeight + 1,
+                powerRadius * 2,
+                powerRadius * 2);
+
+            if (powerRegion != IntPtr.Zero)
+            {
+                NativeMethods.CombineRgn(region, region, powerRegion, NativeMethods.RGN_OR);
+                NativeMethods.DeleteObject(powerRegion);
+            }
         }
 
         // SetWindowRgn 成功时由系统接管这块区域；失败时自己要记得释放。
@@ -195,7 +301,7 @@ internal sealed class IslandWindowStyler
     /// <summary>显示之后的策略：不抢焦点、重新压到最顶层、锁死位置。</summary>
     public void ApplyPostShowPolicy()
     {
-        // 点击胶囊不激活窗口、不抢焦点、不触发任何默认行为。
+        // 鼠标扫过岛不激活窗口、不抢焦点、不触发任何默认行为。
         var exStyle = NativeMethods.GetWindowLongPtr(_hwnd, NativeMethods.GWL_EXSTYLE).ToInt64();
         exStyle |= NativeMethods.WS_EX_NOACTIVATE;
         NativeMethods.SetWindowLongPtr(_hwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(exStyle));
@@ -237,7 +343,7 @@ internal sealed class IslandWindowStyler
     /// <summary>
     /// 窗口消息钩子：
     ///   * WM_WINDOWPOSCHANGING —— 位置锁定后强制保留启动时算好的矩形（用户拖不动，外部也改不了）。
-    ///   * WM_MOUSEACTIVATE     —— 点击胶囊不激活窗口（双保险，配合 WS_EX_NOACTIVATE）。
+    ///   * WM_MOUSEACTIVATE     —— 鼠标扫过岛不激活窗口（双保险，配合 WS_EX_NOACTIVATE）。
     /// </summary>
     private IntPtr OnSubclassMessage(
         IntPtr hWnd,
@@ -272,5 +378,5 @@ internal sealed class IslandWindowStyler
     // TODO(扩展): 处理 WM_DPICHANGED（被拖到别的缩放比例显示器时重新算尺寸），
     //             以及多显示器场景下「跟随当前主屏」的策略。
     // TODO(扩展): 处理 WM_DISPLAYCHANGE（分辨率/主屏变化后重新居中）。
-    // TODO(扩展): 如果出现别的置顶窗口压在胶囊上面，可以在这里加一个低频定时器重新 ReassertTopMost()。
+    // TODO(扩展): 如果出现别的置顶窗口压在岛上，可以在这里加一个低频定时器重新 ReassertTopMost()。
 }

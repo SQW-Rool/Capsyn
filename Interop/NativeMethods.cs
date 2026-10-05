@@ -75,6 +75,13 @@ internal static class NativeMethods
         public uint flags;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
     public delegate IntPtr SubclassProc(
         IntPtr hWnd,
         uint uMsg,
@@ -123,6 +130,10 @@ internal static class NativeMethods
     /// <summary>窗口所在显示器的缩放比例（96 DPI = 1.0）。</summary>
     [DllImport("user32.dll")]
     public static extern uint GetDpiForWindow(IntPtr hWnd);
+
+    /// <summary>当前光标位置（屏幕坐标，物理像素）。用来判断鼠标是否悬停在岛上。</summary>
+    [DllImport("user32.dll")]
+    public static extern bool GetCursorPos(out POINT lpPoint);
 
     // ---------------- comctl32（窗口子类化，用于锁死位置） ----------------
 
@@ -180,6 +191,13 @@ internal static class NativeMethods
     /// <summary>把窗口裁剪成指定区域（成功时区域所有权交给系统）。</summary>
     [DllImport("user32.dll", SetLastError = true)]
     public static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
+
+    /// <summary>合并两个区域（用来把「胶囊」和「看板」拼成一个窗口形状）。</summary>
+    [DllImport("gdi32.dll", SetLastError = true)]
+    public static extern int CombineRgn(IntPtr hrgnDest, IntPtr hrgnSrc1, IntPtr hrgnSrc2, int iMode);
+
+    /// <summary>CombineRgn 的模式：并集。</summary>
+    public const int RGN_OR = 2;
 
     [DllImport("gdi32.dll")]
     public static extern bool DeleteObject(IntPtr hObject);

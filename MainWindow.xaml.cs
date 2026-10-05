@@ -8,8 +8,7 @@ namespace Capsyn;
 
 /// <summary>
 /// 只有「壳」：窗口本身 + 无边框/置顶/固定位置的系统行为。
-/// 显示什么内容全部交给 <see cref="Controls.TimeIslandControl"/>，
-/// 以后加通知/音乐/计时器只要换一个新的 UserControl。
+/// 显示什么、怎么展开，全交给 <see cref="Controls.IslandShell"/>。
 /// </summary>
 public sealed partial class MainWindow : Window
 {
@@ -23,11 +22,16 @@ public sealed partial class MainWindow : Window
         var hwnd = WindowNative.GetWindowHandle(this);
         _styler = new IslandWindowStyler(this, hwnd, IslandOptions.Default);
 
-        // 1) 无边框 / 不进任务栏和 Alt+Tab / 置顶 / 圆角外透明。
+        // 1) 无边框 / 不进任务栏和 Alt+Tab / 置顶 / 不画系统边框。
         _styler.ApplyChrome();
 
-        // 2) 先藏起来，等位置算好再显示，避免在默认位置闪一下。
+        // 2) 先藏起来，等位置和形状都算好再显示，避免在默认位置闪一下。
         NativeMethods.ShowWindow(hwnd, NativeMethods.SW_HIDE);
+
+        // 岛壳需要两样东西：窗口矩形（判断悬停）和形变进度（同步窗口区域）。
+        Island.WindowRectProvider = () => _styler.WindowRect;
+        Island.ShapeProgress += OnIslandShapeProgress;
+        Island.ExitRequested += OnExitRequested;
 
         Closed += OnClosed;
 
@@ -35,15 +39,34 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 按主屏算一次位置并固定，然后显示窗口。由 <see cref="App.OnLaunched"/> 调用。
+    /// 按主屏算一次窗口位置并固定，先裁成胶囊再显示。由 <see cref="App.OnLaunched"/> 调用。
     /// </summary>
     public void ShowIsland()
     {
-        _styler.ApplyPillLayout();      // 尺寸 + 主屏顶部居中（只算这一次）
-        _styler.ApplyPillShape();       // 把窗口本身裁成胶囊（圆角以外不算窗口，不会有白角）
-        Activate();                     // 显示窗口（此时还未禁止激活，保证一定可见）
-        _styler.ApplyPostShowPolicy();  // 点击不激活 + 压到最顶层 + 锁死位置
+        _styler.ApplyIslandLayout();                 // 整块看板画布，主屏顶部居中（只算这一次）
+
+        var (scaleX, scaleY) = Island.CollapsedPanelScale;
+        _styler.UpdateIslandShape(scaleX, scaleY, 0);   // 收起态：窗口只露出时间岛胶囊
+
+        Activate();                                  // 显示窗口（此时还未禁止激活，保证一定可见）
+        _styler.ApplyPostShowPolicy();               // 不抢焦点 + 压到最顶层 + 锁死位置
     }
 
-    private void OnClosed(object sender, WindowEventArgs args) => _styler.Detach();
+    private void OnIslandShapeProgress(double panelScaleX, double panelScaleY, double powerScale)
+        => _styler.UpdateIslandShape(panelScaleX, panelScaleY, powerScale);
+
+    /// <summary>电源岛里的「关闭程序」：关掉窗口并退出应用。</summary>
+    private void OnExitRequested()
+    {
+        Diagnostics.Log("exit requested -> closing window and exiting");
+        Close();
+        Application.Current.Exit();
+    }
+
+    private void OnClosed(object sender, WindowEventArgs args)
+    {
+        Island.ShapeProgress -= OnIslandShapeProgress;
+        Island.ExitRequested -= OnExitRequested;
+        _styler.Detach();
+    }
 }
