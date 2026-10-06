@@ -39,6 +39,25 @@
             <Setter Property="CornerRadius" Value="3" />
             <Setter Property="HorizontalAlignment" Value="Left" />
         </Style>
+
+        <!-- 第 3 行的操作按钮（「电源」/「设置」共用同一套观感） -->
+        <Style x:Key="RowActionButton" TargetType="Button">
+            <Setter Property="Padding" Value="16,9" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Background" Value="#1AFFFFFF" />
+            <Setter Property="BorderBrush" Value="#2EFFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="#FFFFFFFF" />
+        </Style>
+
+        <!-- 把默认按钮态刷成半透明白，免得在纯黑底上出现浅色主题的灰块 -->
+        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#26FFFFFF" />
+        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#33FFFFFF" />
+        <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFFFFFFF" />
+        <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#B3FFFFFF" />
+        <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#4DFFFFFF" />
+        <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#4DFFFFFF" />
     </UserControl.Resources>
 
     <!--
@@ -46,7 +65,7 @@
         布局：
           第 1 行  CPU / 内存 / 网络上下行 三张卡
           第 2 行  一条横线
-          第 3 行  电源按钮（图标 + 文字），其余空间留白给后续模块
+          第 3 行  「电源」「设置」两个按钮（矢量图标 + 文字），其余空间留白给后续模块
 
         TODO(扩展): 第 3 行右侧、下方整块空白留给通知列表 / 音乐卡片 / 计时器。
     -->
@@ -131,30 +150,17 @@
             Background="#24FFFFFF"
             HorizontalAlignment="Stretch" />
 
-        <!-- 第 3 行：电源按钮（矢量图标 + 文字） -->
+        <!-- 第 3 行：「电源」按钮（电源岛的悬停触发器）+「设置」按钮（只有 UI） -->
         <StackPanel
             Grid.Row="2"
             Orientation="Horizontal"
+            Spacing="12"
             Margin="0,16,0,0"
             VerticalAlignment="Top">
             <Button
                 x:Name="PowerButton"
                 Click="OnPowerClick"
-                Padding="16,9"
-                CornerRadius="12"
-                Background="#1AFFFFFF"
-                BorderBrush="#2EFFFFFF"
-                BorderThickness="1">
-
-                <!-- 把默认按钮态刷成半透明白，免得在纯黑底上出现浅色主题的灰块 -->
-                <Button.Resources>
-                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#26FFFFFF" />
-                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#33FFFFFF" />
-                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFFFFFFF" />
-                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#B3FFFFFF" />
-                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#4DFFFFFF" />
-                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#4DFFFFFF" />
-                </Button.Resources>
+                Style="{StaticResource RowActionButton}">
 
                 <StackPanel Orientation="Horizontal" Spacing="9">
                     <!-- 电源图标：矢量路径（圆环缺口 + 竖杠），不依赖任何图标字体 -->
@@ -169,6 +175,39 @@
                         Data="M 12,3 L 12,11 M 16,6.07 A 8,8 0 1 1 8,6.07" />
                     <TextBlock
                         Text="电源"
+                        FontSize="14"
+                        Foreground="#FFFFFFFF"
+                        VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+
+            <!--
+                设置按钮：按需求目前只有 UI —— 不接 Click、不写诊断日志，点击不触发任何动作。
+
+                TODO(扩展): 设置面板（外观 / 指标开关 / 开机自启等）接在这里：
+                            给这个按钮加 Click，然后弹窗或展开第三块岛。
+            -->
+            <Button
+                x:Name="SettingsButton"
+                Style="{StaticResource RowActionButton}">
+
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                    <!--
+                        设置图标：同样是矢量路径（圆环 + 8 个齿），不依赖任何图标字体。
+                        齿尖到齿尖正好 18×18，和电源图标铺满同一个 18×18 格子，
+                        两者的 Stretch 缩放都是 1:1，所以笔画粗细（1.8）看起来一致。
+                    -->
+                    <Path
+                        Width="18"
+                        Height="18"
+                        Stretch="Uniform"
+                        Stroke="#FFFFFFFF"
+                        StrokeThickness="1.8"
+                        StrokeStartLineCap="Round"
+                        StrokeEndLineCap="Round"
+                        Data="M 12,6.8 A 5.2,5.2 0 1 1 12,17.2 A 5.2,5.2 0 1 1 12,6.8 M 17.2,12 L 21,12 M 15.68,15.68 L 18.36,18.36 M 12,17.2 L 12,21 M 8.32,15.68 L 5.64,18.36 M 6.8,12 L 3,12 M 8.32,8.32 L 5.64,5.64 M 12,6.8 L 12,3 M 15.68,8.32 L 18.36,5.64" />
+                    <TextBlock
+                        Text="设置"
                         FontSize="14"
                         Foreground="#FFFFFFFF"
                         VerticalAlignment="Center" />

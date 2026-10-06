@@ -38,10 +38,10 @@
 
     <!--
         电源岛：550 × 84，四个按钮平分一行。
-        按需求「关机 / 重启 / 睡眠」只做 UI（点击不执行任何系统动作），只有「关闭程序」真正生效。
-        尺寸由 IslandShell 按 IslandOptions 设置，这里靠 Stretch 铺满。
+        按需求「关机 / 重启 / 睡眠」只有 UI —— 和看板岛的「设置」按钮一样，连 Click 都不接；
+        只有「关闭程序」真正生效。尺寸由 IslandShell 按 IslandOptions 设置，这里靠 Stretch 铺满。
 
-        TODO(扩展): 需要真做系统电源操作时，在对应 Click 里调系统 API，并先弹确认。
+        TODO(扩展): 需要真做系统电源操作时，在对应按钮上加 Click 调系统 API，并先弹确认。
     -->
     <Grid Padding="16" Background="{x:Null}">
         <Grid ColumnSpacing="12">
@@ -56,20 +56,17 @@
                 x:Name="ShutdownButton"
                 Grid.Column="0"
                 Content="关机"
-                Style="{StaticResource PowerActionButton}"
-                Click="OnShutdownClick" />
+                Style="{StaticResource PowerActionButton}" />
             <Button
                 x:Name="RestartButton"
                 Grid.Column="1"
                 Content="重启"
-                Style="{StaticResource PowerActionButton}"
-                Click="OnRestartClick" />
+                Style="{StaticResource PowerActionButton}" />
             <Button
                 x:Name="SleepButton"
                 Grid.Column="2"
                 Content="睡眠"
-                Style="{StaticResource PowerActionButton}"
-                Click="OnSleepClick" />
+                Style="{StaticResource PowerActionButton}" />
             <Button
                 x:Name="ExitButton"
                 Grid.Column="3"
