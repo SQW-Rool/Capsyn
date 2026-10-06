@@ -1,16 +1,19 @@
 <#
 .SYNOPSIS
-    把 Capsyn 源码提交并推送到 GitHub 备份仓库。
+    把 Capsyn 源码提交并推送到 GitHub 仓库。
 
 .DESCRIPTION
-    备份仓库：https://github.com/SQW-Rool/Capsyn-backup
-    只备份源码与配置：bin / obj / .vs / .tools 都已在 .gitignore 里忽略。
+    仓库：https://github.com/SQW-Rool/Capsyn
+    （原来叫 Capsyn-backup，改名后旧地址会自动跳转；本地 clone 想换过来就执行一次
+      git remote set-url origin https://github.com/SQW-Rool/Capsyn.git）
+
+    只提交源码与配置：bin / obj / .vs / .tools 都已在 .gitignore 里忽略。
     每次改动验证通过后执行一次，GitHub 上的提交历史就是回滚参考；
-    建议同时打 tag（例如 v0.1.1-xxx），回滚时直接 checkout 对应 tag。
+    建议同时打 tag（例如 v0.3.0-TimeToolIslandUI-Update），回滚时直接 checkout 对应 tag。
 
 .EXAMPLE
     cd G:\Capsyn
-    powershell -ExecutionPolicy Bypass -File .\tools\backup-to-github.ps1 -Message "加入通知队列" -Tag v0.2.0-notifications
+    powershell -ExecutionPolicy Bypass -File .\tools\backup-to-github.ps1 -Message "加入通知队列" -Tag v0.3.1-Notifications
 
 .EXAMPLE
     # 只提交推送，不打 tag
@@ -58,6 +61,6 @@ if ($Tag) {
     git push origin $Tag
 }
 
-Write-Host '== 最近提交 ==' -ForegroundColor Cyan
+Write-Host '最近提交：' -ForegroundColor Cyan
 git log --oneline -n 5
-Write-Host '备份完成。' -ForegroundColor Green
+Write-Host '提交推送完成。' -ForegroundColor Green

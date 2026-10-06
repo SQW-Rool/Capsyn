@@ -76,7 +76,7 @@ taskkill /IM Capsyn.exe /F
 | `Configuration/IslandOptions.cs` | 全部可调参数：尺寸、缝隙、回弹余量、弹簧参数、淡入淡出时长、采样间隔 |
 | `Interop/NativeMethods.cs` | 用到的 Win32 / DWM / GDI P/Invoke |
 | `nuget.config` | 官方源 + 本机缓存兜底（见「六、环境说明」） |
-| `tools/backup-to-github.ps1` | 一键备份脚本（见「七、备份到 GitHub」） |
+| `tools/backup-to-github.ps1` | 一键备份脚本（见「七、GitHub 仓库」） |
 
 ---
 
@@ -381,17 +381,20 @@ DashboardIslandControl.OnCloseClick
 
 ---
 
-## 七、备份到 GitHub（回滚参考）
+## 七、GitHub 仓库（同步与回滚参考）
 
-* 备份仓库：<https://github.com/SQW-Rool/Capsyn-backup>
-* 备份内容：源码与配置。`bin/`、`obj/`、`.vs/`、`.tools/`、`capsyn-diag.log` 都已被 `.gitignore` 忽略。
-* 约定：**本地构建通过（0 警告 0 错误）+ 运行验收通过之后**才备份；提交信息写清本次改动，
+* 仓库：<https://github.com/SQW-Rool/Capsyn>
+  （原来叫 `Capsyn-backup`，改名后 GitHub 会让旧地址自动跳转，但文档和脚本统一用新地址；
+  本地 clone 想换过来就执行一次
+  `git remote set-url origin https://github.com/SQW-Rool/Capsyn.git`）
+* 提交内容：源码与配置。`bin/`、`obj/`、`.vs/`、`.tools/`、`capsyn-diag.log` 都已被 `.gitignore` 忽略。
+* 约定：**本地构建通过（0 警告 0 错误）+ 运行验收通过之后**才提交推送；提交信息写清本次改动，
   重要节点同时打 tag，GitHub 的提交历史 + tag 就是回滚锚点。
 * 一键备份脚本（`tools/backup-to-github.ps1`）：
 
 ```powershell
 cd G:\Capsyn
-powershell -ExecutionPolicy Bypass -File .\tools\backup-to-github.ps1 -Message "改了什么" -Tag v0.2.0-xxx
+powershell -ExecutionPolicy Bypass -File .\tools\backup-to-github.ps1 -Message "改了什么" -Tag v0.3.0-TimeToolIslandUI-Update
 # 不需要 tag 时省略 -Tag
 ```
 
@@ -406,7 +409,7 @@ git revert <commit>               # 或撤销某次提交（保留历史，推�
 git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本地）
 ```
 
-* 已备份版本：
+* 已备份版本（tag 记录）：
   * `v0.1.0-time-island` —— 时间岛最小可用版本（无边框置顶胶囊 + 每秒 `HH:MM:SS`）。
   * `v0.2.0` —— 看板岛（悬停展开，550 宽，CPU / 内存 / 网络上下行三张卡 + 横线 + 电源按钮）
     + 电源岛（悬停电源按钮在看板下方展开 关机 / 重启 / 睡眠 / 关闭程序）+ 删除条目生长动画（只保留弹簧 + 内容淡入淡出）。
