@@ -40,7 +40,7 @@
             <Setter Property="HorizontalAlignment" Value="Left" />
         </Style>
 
-        <!-- 右下角的圆形图标按钮：40 × 40，只有图标没有文字，两个按钮共用这套尺寸 -->
+        <!-- 右下角的圆形图标按钮：40 × 40，只有图标没有文字，几个按钮共用这套尺寸 -->
         <Style x:Key="IconButton" TargetType="Button">
             <Setter Property="Width" Value="40" />
             <Setter Property="Height" Value="40" />
@@ -57,6 +57,43 @@
             <Setter Property="BorderBrush" Value="#66FF453A" />
         </Style>
 
+        <!-- 带文字的功能按钮：「时间工具」和三个工具按钮共用 -->
+        <Style x:Key="ToolButton" TargetType="Button">
+            <Setter Property="Padding" Value="16,9" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Background" Value="#1AFFFFFF" />
+            <Setter Property="BorderBrush" Value="#2EFFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="#FFFFFFFF" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <!--
+            三个工具按钮各一个色系（iOS 深色模式取色），一眼能区分：
+              正计时 = 蓝 #0A84FF / 倒计时 = 橙 #FF9F0A / 闹钟 = 紫 #BF5AF2
+            底色淡染（18%）+ 彩色描边 + 亮色文字，和「关闭程序」那套红是同一个做法。
+        -->
+        <Style x:Key="StopwatchToolStyle" TargetType="Button" BasedOn="{StaticResource ToolButton}">
+            <Setter Property="Background" Value="#2E0A84FF" />
+            <Setter Property="BorderBrush" Value="#660A84FF" />
+            <Setter Property="Foreground" Value="#FF7AB8FF" />
+        </Style>
+
+        <Style x:Key="CountdownToolStyle" TargetType="Button" BasedOn="{StaticResource ToolButton}">
+            <Setter Property="Background" Value="#2EFF9F0A" />
+            <Setter Property="BorderBrush" Value="#66FF9F0A" />
+            <Setter Property="Foreground" Value="#FFFFC46B" />
+        </Style>
+
+        <Style x:Key="AlarmToolStyle" TargetType="Button" BasedOn="{StaticResource ToolButton}">
+            <Setter Property="Background" Value="#2EBF5AF2" />
+            <Setter Property="BorderBrush" Value="#66BF5AF2" />
+            <Setter Property="Foreground" Value="#FFD3A6FF" />
+        </Style>
+
         <!-- 把默认按钮态刷成半透明白，免得在纯黑底上出现浅色主题的灰块 -->
         <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#26FFFFFF" />
         <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#33FFFFFF" />
@@ -68,24 +105,38 @@
 
     <!--
         看板岛：550 × 350（尺寸由 IslandShell 按 IslandOptions 设置，这里靠 Stretch 铺满）。
-        布局：
-          第 1 行  CPU / 内存 / 网络上下行 三张卡
-          第 2 行  一条横线
-          第 3 行  右下角两个圆形图标按钮：「设置」（只有 UI）在左、「关闭程序」（真正退出）在右
-          其余空间留白
+        里面有两个视图，只切可见性（面板尺寸、窗口区域、动画都不用变）：
 
-        TODO(扩展): 通知列表 / 音乐卡片 / 计时器往下面的留白区放。
+          视图 1（默认，指标）：第 1 行三张卡（CPU / 内存 / 网络上下行）+ 横线 +
+                                左下「时间工具」按钮（时钟图标 + 文字）+ 右下角「设置」「关闭程序」两个圆形图标按钮
+          视图 2（时间工具）：左上角「返回」圆形图标按钮 + 横线 +
+                              「正计时 / 倒计时 / 闹钟」三个按钮（三列等宽、垂直居中）+
+                              右下角两个圆形图标按钮
+
+        两个视图之间走一段 iOS 风格的 push / pop 过场（旧视图往一侧滑出、新视图从另一侧滑入，
+        返回时方向相反），见 SetTimeToolsVisible()。
+
+        两个视图都还没接功能（按需求先只做 UI）。
+
+        TODO(扩展): 通知列表 / 音乐卡片往留白区放。
         TODO(扩展): 设置面板接在 SettingsButton 上（加 Click → 弹窗或展开一块面板）。
+        TODO(扩展): 正计时 / 倒计时 / 闹钟接各自的计时逻辑 + 时间岛上的显示。
     -->
     <Grid Padding="16" Background="{x:Null}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
+            <!--
+                第 1 行固定 104（= 指标卡高度）：两个视图共用这一行，必须固定住 ——
+                否则过场期间旧视图还占着高度、收起来之后下面两行会整体跳一下。
+            -->
+            <RowDefinition Height="104" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!-- ==================== 视图 1：指标 ==================== -->
+
         <!-- 第 1 行：三张数据卡 -->
-        <Grid Grid.Row="0" ColumnSpacing="12">
+        <Grid x:Name="MetricsView" Grid.Row="0" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
@@ -150,6 +201,130 @@
             </Border>
         </Grid>
 
+        <!-- 第 3 行左上：「时间工具」（视图 1 才有） -->
+        <Button
+            x:Name="TimeToolsButton"
+            Grid.Row="2"
+            Margin="0,16,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Style="{StaticResource ToolButton}"
+            Click="OnTimeToolsClick">
+
+            <StackPanel Orientation="Horizontal" Spacing="9">
+                <!-- 时钟图标：矢量路径（圆环 + 两根指针），不依赖任何图标字体 -->
+                <Path
+                    Width="18"
+                    Height="18"
+                    Stretch="Uniform"
+                    Stroke="#FFFFFFFF"
+                    StrokeThickness="1.8"
+                    StrokeStartLineCap="Round"
+                    StrokeEndLineCap="Round"
+                    Data="M 12,3 A 9,9 0 1 1 11.99,3 M 12,12 L 12,6.5 M 12,12 L 16.5,14.5" />
+                <TextBlock
+                    Text="时间工具"
+                    FontSize="14"
+                    Foreground="#FFFFFFFF"
+                    VerticalAlignment="Center" />
+            </StackPanel>
+        </Button>
+
+        <!-- ==================== 视图 2：时间工具 ==================== -->
+
+        <!-- 左上角：返回（点击回到指标视图） -->
+        <Button
+            x:Name="TimeToolsBackButton"
+            Grid.Row="0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Visibility="Collapsed"
+            Style="{StaticResource IconButton}"
+            Click="OnTimeToolsBackClick">
+
+            <!-- 左箭头：矢量路径 -->
+            <Path
+                Width="18"
+                Height="18"
+                Stretch="Uniform"
+                Stroke="#FFFFFFFF"
+                StrokeThickness="1.8"
+                StrokeStartLineCap="Round"
+                StrokeEndLineCap="Round"
+                Data="M 11,5 L 3,12 L 11,19 M 3,12 L 21,12" />
+        </Button>
+
+        <!-- 三个工具按钮（先只做 UI，都不接 Click）；靠上排，距横线 8px -->
+        <Grid
+            x:Name="TimeToolsPanel"
+            Grid.Row="2"
+            ColumnSpacing="12"
+            Margin="0,8,0,0"
+            VerticalAlignment="Top"
+            Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 正计时：蓝 -->
+            <Button
+                x:Name="StopwatchButton"
+                Grid.Column="0"
+                Height="56"
+                Content="正计时"
+                Style="{StaticResource StopwatchToolStyle}">
+
+                <Button.Resources>
+                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#400A84FF" />
+                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#520A84FF" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#800A84FF" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#990A84FF" />
+                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFA8D2FF" />
+                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#FFCBE4FF" />
+                </Button.Resources>
+            </Button>
+
+            <!-- 倒计时：橙 -->
+            <Button
+                x:Name="CountdownButton"
+                Grid.Column="1"
+                Height="56"
+                Content="倒计时"
+                Style="{StaticResource CountdownToolStyle}">
+
+                <Button.Resources>
+                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#40FF9F0A" />
+                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#52FF9F0A" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#80FF9F0A" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#99FF9F0A" />
+                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFFFD79A" />
+                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#FFFFE7C2" />
+                </Button.Resources>
+            </Button>
+
+            <!-- 闹钟：紫 -->
+            <Button
+                x:Name="AlarmButton"
+                Grid.Column="2"
+                Height="56"
+                Content="闹钟"
+                Style="{StaticResource AlarmToolStyle}">
+
+                <Button.Resources>
+                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#40BF5AF2" />
+                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#52BF5AF2" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#80BF5AF2" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#99BF5AF2" />
+                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFDDBBFF" />
+                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#FFEEDAFF" />
+                </Button.Resources>
+            </Button>
+        </Grid>
+
+        <!-- ==================== 两个视图共用 ==================== -->
+
         <!-- 第 2 行：横线 -->
         <Border
             Grid.Row="1"
@@ -158,10 +333,7 @@
             Background="#24FFFFFF"
             HorizontalAlignment="Stretch" />
 
-        <!--
-            第 3 行（底行）：右下角两个圆形图标按钮，「设置」在「关闭程序」左边。
-            两个按钮都是 40 × 40、只有图标，共用 IconButton 的尺寸 / 圆角 / 描边。
-        -->
+        <!-- 第 3 行右下角：「设置」「关闭程序」两个圆形图标按钮 -->
         <StackPanel
             Grid.Row="2"
             Orientation="Horizontal"

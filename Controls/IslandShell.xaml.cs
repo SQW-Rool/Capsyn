@@ -204,6 +204,10 @@ public sealed partial class IslandShell : UserControl
 
         if (expanded)
         {
+            // 每次从收起态展开都从「指标」视图开始：上次停在时间工具视图（且没点返回）也复位掉。
+            // 只在真的「收起 → 展开」时走到这里，宽限期内移回来的情况会提前 return，不会打断交互。
+            Dashboard.ResetToMetricsView();
+
             _panelAnimator.Expand();
             _panelSpring.SetTarget(1.0, _options.SpringDampingRatio, _options.SpringPeriod.TotalSeconds);
         }
