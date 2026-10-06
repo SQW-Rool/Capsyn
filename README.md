@@ -357,8 +357,8 @@ DashboardIslandControl.OnCloseClick
 ## 六、环境说明
 
 * 依赖：.NET 9 桌面运行时、Windows App Runtime **1.8**（`8000.994.2142.0`，已安装）。
-  如果换到没装运行时的机器，把 `Capsyn.csproj` 里的
-  `<WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>` 改成 `true` 再 build 即可。
+  本机开发（`dotnet build` / VS F5）用框架依赖就行；**要发到没装这些运行时的机器**时用自包含发布
+  （命令见下面的「打安装包 / 自包含发布」）。
 * `nuget.config`：保留 `nuget.org` 官方源（方便以后在 VS 里装新包），同时把本机缓存
   `C:\Users\sqw-j\.nuget\packages` 配成只读 `fallbackPackageFolders`，所以没有外网也能还原
   （离线时只会出现 `NU1900` 漏洞库警告，可忽略）。新解出来的包放在项目内的 `.tools\nuget-packages`
@@ -376,6 +376,31 @@ DashboardIslandControl.OnCloseClick
     `<DisableTransitiveFrameworkReferenceDownloads>true</DisableTransitiveFrameworkReferenceDownloads>`。
   * 已实测：`dotnet restore` 与 VS 2022 的 Framework MSBuild `/t:Restore` 都返回 0，
     `project.assets.json` 里不再有运行时包依赖、没有 `NU1100`。
+* **这两个下载开关带条件**（`Condition="'$(SelfContained)' != 'true'"`）：
+  **自包含发布**（`publish -p:SelfContained=true`）恰恰必须要 RID 运行时包，
+  无条件关掉会报 `NETSDK1185`（「运行时包不可用」）。带条件之后 ——
+  `dotnet build` 照旧（NU1100 修复保留），`publish -p:SelfContained=true` 自动放开下载。
+* **打安装包 / 自包含发布**：
+
+```powershell
+# 自包含：目标机器不需要预装 .NET 9 / Windows App Runtime，产物约 200 MB、500 多个文件
+dotnet publish Capsyn.csproj -c Release -p:Platform=x64 -r win-x64 `
+  --self-contained true -p:WindowsAppSDKSelfContained=true
+# 打包原料就是这个目录（不是 dotnet build 的输出目录）：
+#   bin\x64\Release\net9.0-windows10.0.19041.0\win-x64\publish\
+```
+
+  * WinUI 3 / WinAppSDK **不支持 `PublishSingleFile` 与 `PublishTrimmed`**，别开。
+  * **踩过的坑**：`dotnet publish` 默认**不会**把 XAML 编译产物（每个 `.xaml` 的 `.xbf` 和
+    MRT Core 的 `Capsyn.pri`）复制进发布目录 —— publish 只收「build 产物清单」里的文件，
+    而 `.xbf` 是 XAML 编译器用 target 拷出来的、不在清单里。结果发布出来的程序双击起不来，
+    而 `dotnet build` 一切正常，极难发现。
+    已在 `Capsyn.csproj` 末尾加 `CopyXamlArtifactsToPublish` target，在 `Publish` 之后把这批文件
+    补拷进去（**只补拷，不改 build 行为**）。发布完请确认 `publish\` 里有
+    `App.xbf`、`MainWindow.xbf`、`Controls\*.xbf` 和 `Capsyn.pri`。
+  * 另一种（官方模板的）做法是把 `<EnableMsixTooling>` 改成 `true`：那样 `.xbf` 会被打进
+    `Capsyn.pri`（约 1.3 MB），publish 也会自动带上它 —— 缺点是会改变 build 输出的形态，
+    所以本项目保留 `false` + 补拷 target 这条路。
 * 如果构建时出现 `MSB6003 / CreatePipe 拒绝访问`，说明当前 shell 有进程/管道沙箱限制：
   XAML 编译器需要 `cmd.exe`/`csc.exe` 子进程，换到普通 PowerShell 或 Visual Studio 里构建即可。
 
@@ -394,7 +419,7 @@ DashboardIslandControl.OnCloseClick
 
 ```powershell
 cd G:\Capsyn
-powershell -ExecutionPolicy Bypass -File .\tools\backup-to-github.ps1 -Message "改了什么" -Tag v0.3.0-TimeToolIslandUI-Update
+powershell -ExecutionPolicy Bypass -File .\tools\backup-to-github.ps1 -Message "改了什么" -Tag v0.3.0-ProjectChange
 # 不需要 tag 时省略 -Tag
 ```
 
@@ -409,7 +434,7 @@ git revert <commit>               # 或撤销某次提交（保留历史，推�
 git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本地）
 ```
 
-* 已备份版本（tag 记录）：
+* 已备份版本：
   * `v0.1.0-time-island` —— 时间岛最小可用版本（无边框置顶胶囊 + 每秒 `HH:MM:SS`）。
   * `v0.2.0` —— 看板岛（悬停展开，550 宽，CPU / 内存 / 网络上下行三张卡 + 横线 + 电源按钮）
     + 电源岛（悬停电源按钮在看板下方展开 关机 / 重启 / 睡眠 / 关闭程序）+ 删除条目生长动画（只保留弹簧 + 内容淡入淡出）。
@@ -436,3 +461,12 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     两个坑也一并记在 README 里：第 1 行高度必须固定成 104（否则过场时下面两行跳 64px）、
     复位视图时不能用 `StopAnimation` 清位移（要用 `SnapToRest` 显式推回 0）。
     行为：每次从收起态展开都会**复位成指标视图**（不点返回直接移开也一样）。
+  * `v0.3.0-ProjectChange` —— **为打包（Inno Setup 等）做的工程改动**，界面这一版没有变化：
+    ① `EnableRuntimePackDownload` / `DisableTransitiveFrameworkReferenceDownloads` 两个开关加上
+    `Condition="'$(SelfContained)' != 'true'"` —— 自包含发布不再报 `NETSDK1185`，
+    平时 `dotnet build` 的 NU1100 修复原样保留；
+    ② `Capsyn.csproj` 末尾新增 `CopyXamlArtifactsToPublish` target，修掉
+    「`dotnet publish` 出来的目录缺 `.xbf` / `Capsyn.pri`、双击起不来」这个坑（只补拷，不改 build 行为）；
+    ③ 删掉重复写了两遍的 `<WindowsAppSDKSelfContained>`；④ README 第六节补自包含发布命令与这两个坑的说明。
+    实测：`dotnet build` 0 警告 0 错误；框架依赖与自包含两种 publish 的产物都含
+    `Capsyn.exe` + 5 个 `.xbf` + `Capsyn.pri`（自包含 509 文件 / 约 210 MB）。

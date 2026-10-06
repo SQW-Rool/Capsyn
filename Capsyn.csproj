@@ -5,7 +5,8 @@
     Windows App SDK / WinUI 3，C#，Unpackaged（未打包）：
       * WindowsPackageType=None → 不需要 MSIX 打包、不需要签名，直接跑 exe。
       * 生成的 WindowsAppSdkBootstrapInitialize 会自动引导本机已安装的 Windows App Runtime。
-      * EnableMsixTooling=false → 保留 MRT Core 的 PRI 生成（未打包应用需要 Capsyn.pri）。
+      * EnableMsixTooling=false → .xbf 以散文件形式拷到 build 输出（未打包应用直接读磁盘上的 .xbf）。
+        代价：dotnet publish 不会自动带上这些 .xbf 和 Capsyn.pri，所以文件末尾有个补拷 target。
   -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -33,14 +34,17 @@
       本机缓存里没有这些包 → Visual Studio（Framework MSBuild，把它们当 PackageReference）
       会报一片 NU1100；dotnet CLI（Core MSBuild，当 PackageDownload）只是记成警告。
       关掉下载后只用本机已安装的 targeting pack / apphost pack，CLI 和 VS 都不会再报错。
+
+      但**自包含发布**（publish 时带 -p:SelfContained=true）恰恰必须要这些 RID 运行时包，
+      无条件关掉会报 NETSDK1185「运行时包不可用」。所以这两个开关只在非自包含时生效：
+        dotnet build ...                         → 开关生效（NU1100 修复保留）
+        dotnet publish -p:SelfContained=true ... → 自动放开，正常下载运行时包
     -->
-    <EnableRuntimePackDownload>false</EnableRuntimePackDownload>
-    <DisableTransitiveFrameworkReferenceDownloads>true</DisableTransitiveFrameworkReferenceDownloads>
+    <EnableRuntimePackDownload Condition="'$(SelfContained)' != 'true'">false</EnableRuntimePackDownload>
+    <DisableTransitiveFrameworkReferenceDownloads Condition="'$(SelfContained)' != 'true'">true</DisableTransitiveFrameworkReferenceDownloads>
     <!-- Windows App Runtime 1.8 已安装在本机，所以不需要自带 WinAppSDK 运行时。
-         如果换到没装运行时的机器，把下面这行改成 true 再 build 即可。 -->
-    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
-    <!-- Windows App Runtime 1.8 已安装在本机，所以不需要自带 WinAppSDK 运行时。
-         如果换到没装运行时的机器，把下面这行改成 true 再 build 即可。 -->
+         要发给没装运行时的机器（或发自包含安装包）时，发布时加
+         -p:WindowsAppSDKSelfContained=true 即可。 -->
     <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
 
     <UseWinUI>true</UseWinUI>
@@ -56,5 +60,26 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.250916003" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
   </ItemGroup>
+
+  <!--
+    打包用：publish 之后把 XAML 编译产物补进发布目录。
+    未打包应用加载 XAML 靠两样东西：每个 .xaml 对应的 .xbf，以及 MRT Core 生成的 Capsyn.pri。
+    但 dotnet publish 只收集「build 产物清单」里的文件，而 .xbf / .pri 是 XAML 编译器用 target
+    拷出来的、不在清单里 —— 所以 publish 出来的目录缺它们，双击起不来（dotnet build 却完全正常，
+    很难发现）。这里只**补拷**，不改 build 行为。
+    发布完请确认 publish\ 里有 App.xbf、MainWindow.xbf、Controls\*.xbf 和 Capsyn.pri。
+  -->
+  <Target Name="CopyXamlArtifactsToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <_XamlPublishArtifact Include="$(TargetDir)**\*.xbf" />
+      <_XamlPublishArtifact
+        Include="$(TargetDir)$(AssemblyName).pri"
+        Condition="Exists('$(TargetDir)$(AssemblyName).pri')" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(_XamlPublishArtifact)"
+      DestinationFiles="@(_XamlPublishArtifact->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>
