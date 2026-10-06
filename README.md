@@ -419,7 +419,7 @@ dotnet publish Capsyn.csproj -c Release -p:Platform=x64 -r win-x64 `
 
 ```powershell
 cd G:\Capsyn
-powershell -ExecutionPolicy Bypass -File .\tools\backup-to-github.ps1 -Message "改了什么" -Tag v0.3.0-ProjectChange
+powershell -ExecutionPolicy Bypass -File .\tools\backup-to-github.ps1 -Message "改了什么" -Tag v0.3.1-ProjectChange
 # 不需要 tag 时省略 -Tag
 ```
 
@@ -461,7 +461,7 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     两个坑也一并记在 README 里：第 1 行高度必须固定成 104（否则过场时下面两行跳 64px）、
     复位视图时不能用 `StopAnimation` 清位移（要用 `SnapToRest` 显式推回 0）。
     行为：每次从收起态展开都会**复位成指标视图**（不点返回直接移开也一样）。
-  * `v0.3.0-ProjectChange` —— **为打包（Inno Setup 等）做的工程改动**，界面这一版没有变化：
+  * `v0.3.1-ProjectChange` —— **为打包（Inno Setup 等）做的工程改动**，界面这一版没有变化：
     ① `EnableRuntimePackDownload` / `DisableTransitiveFrameworkReferenceDownloads` 两个开关加上
     `Condition="'$(SelfContained)' != 'true'"` —— 自包含发布不再报 `NETSDK1185`，
     平时 `dotnet build` 的 NU1100 修复原样保留；
