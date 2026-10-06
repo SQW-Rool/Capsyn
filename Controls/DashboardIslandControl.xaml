@@ -40,29 +40,21 @@
             <Setter Property="HorizontalAlignment" Value="Left" />
         </Style>
 
-        <!-- 第 3 行左上的「设置」按钮（目前只有 UI） -->
-        <Style x:Key="RowActionButton" TargetType="Button">
-            <Setter Property="Padding" Value="16,9" />
-            <Setter Property="CornerRadius" Value="12" />
-            <Setter Property="Background" Value="#1AFFFFFF" />
-            <Setter Property="BorderBrush" Value="#2EFFFFFF" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="Foreground" Value="#FFFFFFFF" />
-        </Style>
-
-        <!--
-            右下角的「关闭程序」：只有图标，圆形红色系，是退出应用的唯一入口。
-            （这套红色原来在电源岛里，电源岛删掉后搬到这里。）
-        -->
-        <Style x:Key="CloseIconButton" TargetType="Button">
+        <!-- 右下角的圆形图标按钮：40 × 40，只有图标没有文字，两个按钮共用这套尺寸 -->
+        <Style x:Key="IconButton" TargetType="Button">
             <Setter Property="Width" Value="40" />
             <Setter Property="Height" Value="40" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="CornerRadius" Value="20" />
+            <Setter Property="Background" Value="#1AFFFFFF" />
+            <Setter Property="BorderBrush" Value="#2EFFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
+        <!-- 「关闭程序」是危险动作：在 IconButton 基础上换成红底 / 红边 -->
+        <Style x:Key="CloseIconButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
             <Setter Property="Background" Value="#2EFF453A" />
             <Setter Property="BorderBrush" Value="#66FF453A" />
-            <Setter Property="BorderThickness" Value="1" />
         </Style>
 
         <!-- 把默认按钮态刷成半透明白，免得在纯黑底上出现浅色主题的灰块 -->
@@ -79,7 +71,7 @@
         布局：
           第 1 行  CPU / 内存 / 网络上下行 三张卡
           第 2 行  一条横线
-          第 3 行  左上「设置」按钮（只有 UI），右下角「关闭程序」图标按钮（真正退出）
+          第 3 行  右下角两个圆形图标按钮：「设置」（只有 UI）在左、「关闭程序」（真正退出）在右
           其余空间留白
 
         TODO(扩展): 通知列表 / 音乐卡片 / 计时器往下面的留白区放。
@@ -166,69 +158,64 @@
             Background="#24FFFFFF"
             HorizontalAlignment="Stretch" />
 
-        <!-- 第 3 行左上：「设置」按钮（按需求目前只有 UI —— 不接 Click，点击不触发任何动作） -->
+        <!--
+            第 3 行（底行）：右下角两个圆形图标按钮，「设置」在「关闭程序」左边。
+            两个按钮都是 40 × 40、只有图标，共用 IconButton 的尺寸 / 圆角 / 描边。
+        -->
         <StackPanel
             Grid.Row="2"
             Orientation="Horizontal"
             Spacing="12"
-            Margin="0,16,0,0"
-            VerticalAlignment="Top">
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom">
+
+            <!-- 设置：按需求目前只有 UI —— 不接 Click，点击不触发任何动作 -->
             <Button
                 x:Name="SettingsButton"
-                Style="{StaticResource RowActionButton}">
+                Style="{StaticResource IconButton}">
 
-                <StackPanel Orientation="Horizontal" Spacing="9">
-                    <!--
-                        设置图标：矢量路径（圆环 + 8 个齿），不依赖任何图标字体。
-                        齿尖到齿尖正好 18×18，整体缩放 1:1，笔画粗细 1.8。
-                    -->
-                    <Path
-                        Width="18"
-                        Height="18"
-                        Stretch="Uniform"
-                        Stroke="#FFFFFFFF"
-                        StrokeThickness="1.8"
-                        StrokeStartLineCap="Round"
-                        StrokeEndLineCap="Round"
-                        Data="M 12,6.8 A 5.2,5.2 0 1 1 12,17.2 A 5.2,5.2 0 1 1 12,6.8 M 17.2,12 L 21,12 M 15.68,15.68 L 18.36,18.36 M 12,17.2 L 12,21 M 8.32,15.68 L 5.64,18.36 M 6.8,12 L 3,12 M 8.32,8.32 L 5.64,5.64 M 12,6.8 L 12,3 M 15.68,8.32 L 18.36,5.64" />
-                    <TextBlock
-                        Text="设置"
-                        FontSize="14"
-                        Foreground="#FFFFFFFF"
-                        VerticalAlignment="Center" />
-                </StackPanel>
+                <!--
+                    设置图标：矢量路径（圆环 + 8 个齿），不依赖任何图标字体。
+                    齿尖到齿尖正好 18×18，整体缩放 1:1，笔画粗细 1.8。
+                -->
+                <Path
+                    Width="18"
+                    Height="18"
+                    Stretch="Uniform"
+                    Stroke="#FFFFFFFF"
+                    StrokeThickness="1.8"
+                    StrokeStartLineCap="Round"
+                    StrokeEndLineCap="Round"
+                    Data="M 12,6.8 A 5.2,5.2 0 1 1 12,17.2 A 5.2,5.2 0 1 1 12,6.8 M 17.2,12 L 21,12 M 15.68,15.68 L 18.36,18.36 M 12,17.2 L 12,21 M 8.32,15.68 L 5.64,18.36 M 6.8,12 L 3,12 M 8.32,8.32 L 5.64,5.64 M 12,6.8 L 12,3 M 15.68,8.32 L 18.36,5.64" />
+            </Button>
+
+            <!-- 关闭程序：只有一个图标，真正退出应用（唯一入口） -->
+            <Button
+                x:Name="CloseButton"
+                Style="{StaticResource CloseIconButton}"
+                Click="OnCloseClick">
+
+                <!-- 这个按钮的指针态也走红色系，悬停时不会变回白灰 -->
+                <Button.Resources>
+                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#40FF453A" />
+                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#52FF453A" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#80FF453A" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#99FF453A" />
+                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFFF9A93" />
+                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#FFFFC2BD" />
+                </Button.Resources>
+
+                <!-- 电源图标：矢量路径（圆环缺口 + 竖杠），不依赖任何图标字体 -->
+                <Path
+                    Width="18"
+                    Height="18"
+                    Stretch="Uniform"
+                    Stroke="#FFFF7A72"
+                    StrokeThickness="1.8"
+                    StrokeStartLineCap="Round"
+                    StrokeEndLineCap="Round"
+                    Data="M 12,3 L 12,11 M 16,6.07 A 8,8 0 1 1 8,6.07" />
             </Button>
         </StackPanel>
-
-        <!-- 右下角：「关闭程序」—— 只有一个图标，真正退出应用 -->
-        <Button
-            x:Name="CloseButton"
-            Grid.Row="2"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Bottom"
-            Style="{StaticResource CloseIconButton}"
-            Click="OnCloseClick">
-
-            <!-- 这个按钮的指针态也走红色系，悬停时不会变回白灰 -->
-            <Button.Resources>
-                <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#40FF453A" />
-                <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#52FF453A" />
-                <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#80FF453A" />
-                <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#99FF453A" />
-                <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFFF9A93" />
-                <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#FFFFC2BD" />
-            </Button.Resources>
-
-            <!-- 电源图标：矢量路径（圆环缺口 + 竖杠），不依赖任何图标字体 -->
-            <Path
-                Width="18"
-                Height="18"
-                Stretch="Uniform"
-                Stroke="#FFFF7A72"
-                StrokeThickness="1.8"
-                StrokeStartLineCap="Round"
-                StrokeEndLineCap="Round"
-                Data="M 12,3 L 12,11 M 16,6.07 A 8,8 0 1 1 8,6.07" />
-        </Button>
     </Grid>
 </UserControl>
