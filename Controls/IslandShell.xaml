@@ -9,11 +9,10 @@
     mc:Ignorable="d">
 
     <!--
-        「岛」的外壳：一块画布（比看板/电源岛略大，给弹簧回弹留余量），里面四层
+        「岛」的外壳：一块画布（比看板略大，给弹簧回弹留余量），里面三层
           1) 整块铺满的纯黑底板 —— 可见形状完全由窗口区域裁出来，回弹/生长时都不会露白底
-          2) 看板岛内容 —— Composition 动画：淡入 + 弹性放大 + 卡片逐个上浮
-          3) 电源岛内容 —— 鼠标移到看板岛的「电源」按钮上才出现，挂在看板岛下方
-          4) 时钟 —— 始终可见
+          2) 看板岛内容 —— Composition 动画只做透明度，生长动画已按需求删除
+          3) 时钟 —— 始终可见
 
         可见形状（圆角、缝隙、生长与回弹中的轮廓）由窗口区域逐帧裁剪给出：
         WinUI 客户区是不透明的，所以「底板铺满 + 区域裁剪」是唯一不露白的办法。
@@ -24,21 +23,14 @@
         <!-- 1) 纯黑底板：铺满整个窗口（默认 Stretch） -->
         <Border x:Name="IslandBackdrop" Background="#FF000000" />
 
-        <!-- 2) 看板岛内容 -->
+        <!-- 2) 看板岛内容（右下角自带「关闭程序」图标按钮） -->
         <controls:DashboardIslandControl
             x:Name="Dashboard"
             Opacity="0"
             HorizontalAlignment="Center"
             VerticalAlignment="Top" />
 
-        <!-- 3) 电源岛内容 -->
-        <controls:PowerIslandControl
-            x:Name="PowerIsland"
-            Opacity="0"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Top" />
-
-        <!-- 4) 时钟：收起/展开都在最上层，位置不变 -->
+        <!-- 3) 时钟：收起/展开都在最上层，位置不变 -->
         <controls:TimeIslandControl
             x:Name="Clock"
             HorizontalAlignment="Center"

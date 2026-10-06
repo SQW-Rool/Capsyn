@@ -4,7 +4,7 @@ namespace Capsyn.Configuration;
 /// 「岛」的外观、动画与数据配置。
 ///
 /// 布局约定（都是 DIP）：
-///   窗口 = 450 × 396 的一块画布（尺寸由看板决定）
+///   窗口 = 616 × 438 的一块画布（尺寸由看板决定，含弹簧回弹余量）
 ///   胶囊（时间岛）固定在窗口顶部居中，看板（看板岛）在胶囊下方，
 ///   两者之间留 <see cref="ExpandedGap"/> 的缝隙，看板从这条缝向下生长。
 ///
@@ -49,43 +49,20 @@ public sealed class IslandOptions
     /// </summary>
     public double BounceMargin { get; init; } = 1.12;
 
-    // ---------------- 电源岛（挂在看板岛下方，鼠标移到电源按钮上才出现） ----------------
-
-    /// <summary>电源岛高度（DIP）。</summary>
-    public double PowerIslandHeight { get; init; } = 84;
-
-    /// <summary>看板岛与电源岛之间的缝隙（DIP）。</summary>
-    public double PowerIslandGap { get; init; } = 6;
-
-    /// <summary>电源岛宽度：和看板同宽。</summary>
-    public double PowerIslandWidth => ExpandedWidth;
-
-    /// <summary>电源岛圆角半径（DIP）。</summary>
-    public double PowerIslandCornerRadius { get; init; } = 24;
-
-    /// <summary>电源岛在窗口内的上边距：正好在看板岛下方隔一条缝隙。</summary>
-    public double PowerIslandTop => PanelTop + ExpandedHeight + PowerIslandGap;
-
-    /// <summary>电源岛出场弹簧（比看板岛稍快一点）。</summary>
-    public float PowerSpringDampingRatio { get; init; } = 0.65f;
-
-    public TimeSpan PowerSpringPeriod { get; init; } = TimeSpan.FromMilliseconds(330);
-
-    /// <summary>看板岛「轻量重播入场」的延迟：先看到电源岛出场，再让看板岛动一下。</summary>
-    public int DashboardNudgeDelayMs { get; init; } = 70;
+    // ---------------- 电源岛已按需求删除 ----------------
+    // 原来挂在看板岛下方的那块 240 × 68 电源岛（关机 / 重启 / 睡眠 / 关闭程序）连同它的
+    // 悬停触发器、弹簧、级联收回逻辑一起删掉了；「关闭程序」现在是看板岛右下角的一个图标按钮。
 
     // ---------------- 由上面派生出的窗口内部布局 ----------------
 
-    /// <summary>窗口宽度：取胶囊、看板、电源岛（后两者含回弹余量）里最宽的那个。</summary>
-    public double WindowWidth => Math.Max(Width, Math.Max(ExpandedWidth, PowerIslandWidth) * BounceMargin);
+    /// <summary>窗口宽度：取胶囊、看板（含回弹余量）里最宽的那个。</summary>
+    public double WindowWidth => Math.Max(Width, ExpandedWidth * BounceMargin);
 
-    /// <summary>窗口高度：胶囊 + 缝隙 + 看板 + 缝隙 + 电源岛（后两者含回弹余量）。</summary>
+    /// <summary>窗口高度：胶囊 + 缝隙 + 看板（含回弹余量）。</summary>
     public double WindowHeight
         => Height
            + ExpandedGap
-           + (ExpandedHeight * BounceMargin)
-           + PowerIslandGap
-           + (PowerIslandHeight * BounceMargin);
+           + (ExpandedHeight * BounceMargin);
 
     /// <summary>胶囊在窗口内的左边距（水平居中）。</summary>
     public double PillLeft => (WindowWidth - Width) / 2.0;

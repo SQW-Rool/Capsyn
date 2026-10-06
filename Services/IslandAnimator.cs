@@ -36,19 +36,6 @@ internal sealed class IslandAnimator
     /// <summary>出场：内容淡出（不做生长动画）。</summary>
     public void Collapse() => FadeTo(0f, _fadeOutDuration);
 
-    /// <summary>
-    /// 轻量重播一次入场：透明度回一下再亮回来。
-    /// 用在「电源岛先出场、看板岛随后让一下」这个顺序上；同样不做缩放/位移。
-    /// </summary>
-    public void Nudge()
-    {
-        var fade = _compositor.CreateScalarKeyFrameAnimation();
-        fade.InsertKeyFrame(0f, 0.85f);
-        fade.InsertKeyFrame(1f, 1f);
-        fade.Duration = TimeSpan.FromMilliseconds(220);
-        _content.StartAnimation(nameof(Visual.Opacity), fade);
-    }
-
     private void FadeTo(float target, TimeSpan duration)
     {
         var fade = _compositor.CreateScalarKeyFrameAnimation();

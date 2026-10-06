@@ -48,8 +48,6 @@ internal sealed class IslandWindowStyler
     private int _lastPillKey = -1;
     private int _lastPanelWidth = -1;
     private int _lastPanelHeight = -1;
-    private int _lastPowerWidth = -1;
-    private int _lastPowerHeight = -1;
 
     public IslandWindowStyler(Window window, IntPtr hwnd, IslandOptions options)
     {
@@ -183,8 +181,7 @@ internal sealed class IslandWindowStyler
     /// </summary>
     /// <param name="panelScaleX">看板当前 ScaleX（收起 = 胶囊宽 / 看板宽）。</param>
     /// <param name="panelScaleY">看板当前 ScaleY（收起 = 0，展开 = 1）。</param>
-    /// <param name="powerScale">电源岛当前生长进度（收起 = 0，展开 = 1）。</param>
-    public void UpdateIslandShape(double panelScaleX, double panelScaleY, double powerScale)
+    public void UpdateIslandShape(double panelScaleX, double panelScaleY)
     {
         if (_width <= 0 || _height <= 0)
         {
@@ -193,7 +190,6 @@ internal sealed class IslandWindowStyler
 
         var scaleX = Math.Clamp(panelScaleX, 0, 1.2);
         var scaleY = Math.Clamp(panelScaleY, 0, 1.2);
-        var power = Math.Clamp(powerScale, 0, 1.2);
 
         var pillWidth = (int)Math.Round(_options.Width * _scale);
         var pillHeight = (int)Math.Round(_options.Height * _scale);
@@ -203,18 +199,11 @@ internal sealed class IslandWindowStyler
         var panelWidth = (int)Math.Round(_options.ExpandedWidth * _scale * scaleX);
         var panelHeight = (int)Math.Round(_options.ExpandedHeight * _scale * scaleY);
 
-        // 电源岛：横向同样从胶囊宽度长起，纵向从 0 长到电源岛高度。
-        var powerWidthScale = _options.CollapsedScaleX + ((1.0 - _options.CollapsedScaleX) * power);
-        var powerWidth = (int)Math.Round(_options.PowerIslandWidth * _scale * powerWidthScale);
-        var powerHeight = (int)Math.Round(_options.PowerIslandHeight * _scale * power);
-
         // 形状没变就不要再提交（动画期间同一像素尺寸会重复出现很多帧）。
         var pillKey = HashCode.Combine(pillWidth, pillHeight, pillLeft, pillRadius);
         if (pillKey == _lastPillKey
             && panelWidth == _lastPanelWidth
-            && panelHeight == _lastPanelHeight
-            && powerWidth == _lastPowerWidth
-            && powerHeight == _lastPowerHeight)
+            && panelHeight == _lastPanelHeight)
         {
             return;
         }
@@ -222,11 +211,8 @@ internal sealed class IslandWindowStyler
         _lastPillKey = pillKey;
         _lastPanelWidth = panelWidth;
         _lastPanelHeight = panelHeight;
-        _lastPowerWidth = powerWidth;
-        _lastPowerHeight = powerHeight;
 
-        Diagnostics.Log(
-            $"region apply: pill {pillWidth}x{pillHeight} + panel {panelWidth}x{panelHeight} + power {powerWidth}x{powerHeight}");
+        Diagnostics.Log($"region apply: pill {pillWidth}x{pillHeight} + panel {panelWidth}x{panelHeight}");
 
         var region = NativeMethods.CreateRoundRectRgn(
             pillLeft,
@@ -263,31 +249,6 @@ internal sealed class IslandWindowStyler
             {
                 NativeMethods.CombineRgn(region, region, panelRegion, NativeMethods.RGN_OR);
                 NativeMethods.DeleteObject(panelRegion);
-            }
-        }
-
-        // 电源岛：同样并进同一个窗口区域（挂着看板岛下方往下长）。
-        if (powerWidth >= 2 && powerHeight >= 2)
-        {
-            var progress = Math.Clamp(power, 0, 1);
-            var powerRadius = (int)Math.Round((8 + ((_options.PowerIslandCornerRadius - 8) * progress)) * _scale);
-            powerRadius = Math.Max(1, Math.Min(powerRadius, Math.Min(powerWidth, powerHeight) / 2));
-
-            var powerLeft = (_width - powerWidth) / 2;
-            var powerTop = (int)Math.Round(_options.PowerIslandTop * _scale);
-
-            var powerRegion = NativeMethods.CreateRoundRectRgn(
-                powerLeft,
-                powerTop,
-                powerLeft + powerWidth + 1,
-                powerTop + powerHeight + 1,
-                powerRadius * 2,
-                powerRadius * 2);
-
-            if (powerRegion != IntPtr.Zero)
-            {
-                NativeMethods.CombineRgn(region, region, powerRegion, NativeMethods.RGN_OR);
-                NativeMethods.DeleteObject(powerRegion);
             }
         }
 

@@ -46,16 +46,16 @@ public sealed partial class MainWindow : Window
         _styler.ApplyIslandLayout();                 // 整块看板画布，主屏顶部居中（只算这一次）
 
         var (scaleX, scaleY) = Island.CollapsedPanelScale;
-        _styler.UpdateIslandShape(scaleX, scaleY, 0);   // 收起态：窗口只露出时间岛胶囊
+        _styler.UpdateIslandShape(scaleX, scaleY);      // 收起态：窗口只露出时间岛胶囊
 
         Activate();                                  // 显示窗口（此时还未禁止激活，保证一定可见）
         _styler.ApplyPostShowPolicy();               // 不抢焦点 + 压到最顶层 + 锁死位置
     }
 
-    private void OnIslandShapeProgress(double panelScaleX, double panelScaleY, double powerScale)
-        => _styler.UpdateIslandShape(panelScaleX, panelScaleY, powerScale);
+    private void OnIslandShapeProgress(double panelScaleX, double panelScaleY)
+        => _styler.UpdateIslandShape(panelScaleX, panelScaleY);
 
-    /// <summary>电源岛里的「关闭程序」：关掉窗口并退出应用。</summary>
+    /// <summary>看板岛右下角的「关闭程序」：关掉窗口并退出应用。</summary>
     private void OnExitRequested()
     {
         Diagnostics.Log("exit requested -> closing window and exiting");
