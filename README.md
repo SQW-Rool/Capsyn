@@ -347,7 +347,7 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
   * `v0.2.2` —— 看板岛第 3 行加「设置」按钮（矢量齿轮图标 + 文字，**只有 UI**，点击不接任何动作）；
     电源岛的「关机 / 重启 / 睡眠」删掉后端（连 `Click` 都不接），四个按钮都不再写诊断日志
     （「关闭程序」仍只保留退出）。
-  * `v0.2.3` —— **电源岛整块删除**（`PowerIslandControl`、`ShutdownService`、相关 P/Invoke、
+  * `v0.2.3-Power-Modified` —— **电源岛整块删除**（`PowerIslandControl`、`ShutdownService`、相关 P/Invoke、
     `IslandShell` 的电源岛状态机与 `IslandAnimator.Nudge()` 全部移除）；
     「关闭程序」改成看板岛**右下角的图标按钮**（40 × 40 红色圆形，只有图标没有文字），
     「电源」按钮一并删除，看板第 3 行只剩左下的「设置」；`UpdateIslandShape` 回到两个参数，
