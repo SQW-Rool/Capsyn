@@ -49,6 +49,10 @@ internal sealed class IslandWindowStyler
     private int _lastPanelWidth = -1;
     private int _lastPanelHeight = -1;
 
+    // 最近一次提交的形状进度：DPI / 分辨率变化后要按它把窗口区域重算一遍。
+    private double _lastScaleX = double.NaN;
+    private double _lastScaleY = double.NaN;
+
     public IslandWindowStyler(Window window, IntPtr hwnd, IslandOptions options)
     {
         _hwnd = hwnd;
@@ -147,16 +151,41 @@ internal sealed class IslandWindowStyler
     }
 
     /// <summary>
-    /// 按主屏 + 当前 DPI 算一次窗口矩形（整块看板画布，主屏顶部居中），只在启动时调用一次。
-    /// 胶囊在这块画布的顶部居中，看板从胶囊下方往下生长。
+    /// 按主屏 + 当前 DPI 算窗口矩形（整块看板画布，主屏顶部居中）。
+    /// 启动时调用一次；之后显示器缩放 / 分辨率变化时（WM_DPICHANGED / WM_DISPLAYCHANGE）也会再调。
     /// </summary>
     public void ApplyIslandLayout()
     {
-        _scale = NativeMethods.GetDpiForWindow(_hwnd) / 96.0;
-        if (_scale <= 0)
+        ApplyLayoutPass();
+
+        // DPI 要「移完再取」才算准：窗口刚创建时可能还停在别的显示器上，
+        // 这时 GetDpiForWindow 给的是那块屏的缩放比例。取到不一样的就按新比例再算一遍。
+        if (Math.Abs(GetWindowScale() - _scale) > 0.001)
         {
-            _scale = 1.0;
+            ApplyLayoutPass();
         }
+
+        // 位置 / 缩放变了，上一次提交的区域不再有效：清掉去重键，并按最近的形状进度重算一次。
+        _lastPillKey = -1;
+        _lastPanelWidth = -1;
+        _lastPanelHeight = -1;
+
+        if (!double.IsNaN(_lastScaleX))
+        {
+            UpdateIslandShape(_lastScaleX, _lastScaleY);
+        }
+    }
+
+    /// <summary>窗口所在显示器的缩放比例（拿不到就按 100%）。</summary>
+    private double GetWindowScale()
+    {
+        var scale = NativeMethods.GetDpiForWindow(_hwnd) / 96.0;
+        return scale > 0 ? scale : 1.0;
+    }
+
+    private void ApplyLayoutPass()
+    {
+        _scale = GetWindowScale();
 
         var display = DisplayArea.Primary;
         if (display is null)
@@ -211,8 +240,14 @@ internal sealed class IslandWindowStyler
         _lastPillKey = pillKey;
         _lastPanelWidth = panelWidth;
         _lastPanelHeight = panelHeight;
+        _lastScaleX = panelScaleX;
+        _lastScaleY = panelScaleY;
 
-        Diagnostics.Log($"region apply: pill {pillWidth}x{pillHeight} + panel {panelWidth}x{panelHeight}");
+        // 这行在动画期间是**逐帧**走的：字符串插值发生在调用之前，所以先看开关，别白造字符串。
+        if (Diagnostics.IsEnabled)
+        {
+            Diagnostics.Log($"region apply: pill {pillWidth}x{pillHeight} + panel {panelWidth}x{panelHeight}");
+        }
 
         var region = NativeMethods.CreateRoundRectRgn(
             pillLeft,
@@ -303,8 +338,9 @@ internal sealed class IslandWindowStyler
 
     /// <summary>
     /// 窗口消息钩子：
-    ///   * WM_WINDOWPOSCHANGING —— 位置锁定后强制保留启动时算好的矩形（用户拖不动，外部也改不了）。
+    ///   * WM_WINDOWPOSCHANGING —— 位置锁定后强制保留算好的矩形（用户拖不动，外部也改不了）。
     ///   * WM_MOUSEACTIVATE     —— 鼠标扫过岛不激活窗口（双保险，配合 WS_EX_NOACTIVATE）。
+    ///   * WM_DPICHANGED / WM_DISPLAYCHANGE —— 缩放比例 / 分辨率 / 主屏变了，重算窗口矩形与形状。
     /// </summary>
     private IntPtr OnSubclassMessage(
         IntPtr hWnd,
@@ -331,13 +367,22 @@ internal sealed class IslandWindowStyler
             case NativeMethods.WM_MOUSEACTIVATE when _positionLocked:
                 // 不激活，也不把点击交给窗口。
                 return NativeMethods.MA_NOACTIVATE;
+
+            case NativeMethods.WM_DPICHANGED:
+            case NativeMethods.WM_DISPLAYCHANGE:
+            {
+                // 位置锁会把 MoveAndResize 拦回去，所以先临时解锁，算完再锁上（锁的是新矩形）。
+                var wasLocked = _positionLocked;
+                _positionLocked = false;
+                ApplyIslandLayout();
+                _positionLocked = wasLocked;
+                break;
+            }
         }
 
         return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
     }
 
-    // TODO(扩展): 处理 WM_DPICHANGED（被拖到别的缩放比例显示器时重新算尺寸），
-    //             以及多显示器场景下「跟随当前主屏」的策略。
-    // TODO(扩展): 处理 WM_DISPLAYCHANGE（分辨率/主屏变化后重新居中）。
-    // TODO(扩展): 如果出现别的置顶窗口压在岛上，可以在这里加一个低频定时器重新 ReassertTopMost()。
+    // TODO(扩展): 多显示器场景下「跟随当前主屏」的策略（现在固定钉在主屏顶部居中）。
+    // TODO(扩展): 如果出现别的置顶窗口压在岛上，可以加一个低频定时器重新 ReassertTopMost()。
 }

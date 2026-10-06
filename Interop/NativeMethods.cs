@@ -33,6 +33,8 @@ internal static class NativeMethods
     // ---- 窗口消息 ----
     public const uint WM_WINDOWPOSCHANGING = 0x0046;
     public const uint WM_MOUSEACTIVATE = 0x0021;
+    public const uint WM_DISPLAYCHANGE = 0x007E;   // 分辨率 / 主屏变化
+    public const uint WM_DPICHANGED = 0x02E0;      // 窗口所在显示器的缩放比例变化
     public const int MA_NOACTIVATE = 3;
 
     // ---- SetWindowPos / ShowWindow ----

@@ -49,6 +49,13 @@ taskkill /IM Capsyn.exe /F
 设置环境变量 `CAPSYN_DIAG=1` 后启动，会在 exe 同目录写 `capsyn-diag.log`
 （悬停判定、展开/收起、形状同步、采样耗时等时序信息），正常运行时不产生任何开销。
 
+**崩溃日志**：`capsyn-crash.log`（同样在 exe 同目录）**不受开关限制、永远写** ——
+未处理异常（UI 线程 / 后台线程 / 未观察的 Task）都会连调用栈一起记下来。
+UI 线程上的异常记完会标记为「已处理」，让悬浮岛继续活着，不至于因为一次定时器回调出错就整只消失。
+
+**只能开一个**：程序带单实例保护（命名 Mutex），第二个进程会直接退出，不会出现两个胶囊叠在一起。
+所以想同时跑两个版本调试的话，得先 `taskkill /IM Capsyn.exe /F`。
+
 ---
 
 ## 二、文件清单
@@ -58,7 +65,7 @@ taskkill /IM Capsyn.exe /F
 | `Capsyn.csproj` | 工程定义：`net9.0-windows10.0.19041.0`、`UseWinUI`、`WindowsPackageType=None`（未打包）、固定 x64、离线还原开关 |
 | `Capsyn.sln` | 解决方案（Debug/Release × x64） |
 | `app.manifest` | DPI（PerMonitorV2）、comctl32 v6 依赖 |
-| `App.xaml` / `App.xaml.cs` | 应用入口；把窗口宿主的页面背景色改成透明 |
+| `App.xaml` / `App.xaml.cs` | 应用入口；固定深色主题、把窗口宿主的页面背景色改成透明；单实例保护 + 未处理异常兜底 |
 | `MainWindow.xaml(.cs)` | **只有壳**：把窗口、位置、置顶等系统行为与岛壳接起来 |
 | `Controls/IslandShell.xaml(.cs)` | **岛的状态机与外轮廓**：悬停判定、展开/收起、弹簧驱动的窗口形状、Composition 动画 |
 | `Controls/TimeIslandControl.xaml(.cs)` | **时间岛**：`HH:MM:SS` 文本 + 每秒刷新的 `DispatcherTimer` |
@@ -70,8 +77,9 @@ taskkill /IM Capsyn.exe /F
 | `Services/SystemMetricsProvider.cs` | 指标采集：`GetSystemTimes`、`GlobalMemoryStatusEx`、网卡统计 |
 | `Services/IslandAnimator.cs` | 内容淡入淡出（Composition）；条目错帧的「生长动画」已按需求移除 |
 | `Services/SpringScalar.cs` | 阻尼弹簧积分器：驱动 Win32 窗口区域的外轮廓 |
-| `Services/IslandWindowStyler.cs` | 窗口系统行为：无边框、置顶、不进任务栏、不抢焦点、窗口区域裁剪、锁死位置 |
-| `Services/Diagnostics.cs` | 开关式诊断日志（`CAPSYN_DIAG=1`） |
+| `Services/IslandWindowStyler.cs` | 窗口系统行为：无边框、置顶、不进任务栏、不抢焦点、窗口区域裁剪、锁死位置、缩放/分辨率变化重算 |
+| `Services/SingleInstance.cs` | 单实例保护（命名 Mutex），避免两个胶囊叠在一起 |
+| `Services/Diagnostics.cs` | 开关式诊断日志（`CAPSYN_DIAG=1`）+ **永远写**的崩溃日志 |
 | `Helpers/ColorHelper.cs` | `#RRGGBB` / `#AARRGGBB` 解析 |
 | `Configuration/IslandOptions.cs` | 全部可调参数：尺寸、缝隙、回弹余量、弹簧参数、淡入淡出时长、采样间隔 |
 | `Interop/NativeMethods.cs` | 用到的 Win32 / DWM / GDI P/Invoke |
@@ -255,6 +263,29 @@ DashboardIslandControl.OnCloseClick
   窗口高按公式 `40 + 6 + 350 × 1.12 = 438`（旧尺寸实测过 616 × 538，新的这个还没实测）。
 * 这个按钮不写诊断日志，但真的退出。
 
+### 13. 健壮性：单实例 / 异常兜底 / 显示器变化 / 深色主题
+这一组是「整程序」级别的处理，不改变任何界面表现：
+
+* **单实例**（`Services/SingleInstance.cs`）：命名 Mutex（`Capsyn.SingleInstance`，默认 `Local\` 作用域 =
+  当前登录会话）。拿不到就说明已经有一个在跑 → 记一条日志后 `Environment.Exit(0)`。
+  目的：双击两次、或以后「开机自启 + 手动打开」时不会出现两个胶囊叠在一起。
+  Mutex 本身创建失败（权限等）时按「允许多实例」放行 —— 保护措施不该把程序挡在门外。
+* **未处理异常兜底**（`App.xaml.cs`）：接 `Application.UnhandledException` +
+  `AppDomain.CurrentDomain.UnhandledException` + `TaskScheduler.UnobservedTaskException`，
+  全部写进 exe 同目录的 `capsyn-crash.log`（**不受 `CAPSYN_DIAG` 开关限制**）。
+  UI 线程上的异常记完标记 `Handled = true`：定时器回调出错不该让整只岛静默消失
+  （定时器/过场都是 `async void`，否则异常会直接把进程带走）。
+* **缩放 / 分辨率 / 主屏变化**（`IslandWindowStyler`）：子类化里处理 `WM_DPICHANGED` 与
+  `WM_DISPLAYCHANGE` → 重新 `ApplyIslandLayout()`（重算窗口矩形）并按最近的形状进度重算窗口区域。
+  两个细节：① 位置锁会把 `MoveAndResize` 拦回去，所以先临时解锁、算完再锁上；
+  ② DPI 是「移完再取」的 —— 窗口刚创建时可能还停在别的显示器上，先取到的是那块屏的比例，
+  取到不一样就用新比例再算一遍。
+* **固定深色主题**（`App.xaml` 的 `RequestedTheme="Dark"`）：岛永远是黑的，控件如果跟随系统主题，
+  浅色主题下按钮/开关/提示条会露出浅色底 —— 看板里那些半透明白的指针态资源就是在手工补这个洞。
+  固定深色之后这类洞就不用一个个补了。
+* **动画热路径的日志**：`UpdateIslandShape` 里那行「region apply」是逐帧走的，
+  字符串插值发生在调用之前，所以先判断 `Diagnostics.IsEnabled` 再拼字符串，避免白造垃圾。
+
 ---
 
 ## 四、验收对照（实测结果）
@@ -325,6 +356,18 @@ DashboardIslandControl.OnCloseClick
 | 右下角「设置」「关闭程序」两个视图里都常驻 | ⏳ 待运行核对 |
 | 不影响面板尺寸 / 窗口区域 / 弹簧动画 | ✅ 只改 XAML 元素的可见性 + Composition 动画，`IslandShell` / `IslandWindowStyler` 一行没动 |
 
+### 里程碑 10：健壮性整改（单实例 / 异常兜底 / 显示器变化 / 深色主题）
+| 验收项 | 结果 |
+| --- | --- |
+| 双击两次 exe 只有一个胶囊（第二个进程直接退出） | ⏳ 待运行核对（命名 Mutex `Capsyn.SingleInstance`；退出时写一条诊断日志） |
+| 出现未处理异常时写出 `capsyn-crash.log`（含调用栈） | ✅ 三条钩子都接上了（`Application.UnhandledException` / `AppDomain` / `UnobservedTaskException`），日志不受 `CAPSYN_DIAG` 限制 |
+| UI 线程异常后程序继续活着 | ⏳ 待运行核对（`e.Handled = true`） |
+| 改显示缩放 / 改分辨率 / 换主屏后胶囊位置与大小自动重算 | ⏳ 待运行核对（`WM_DPICHANGED` / `WM_DISPLAYCHANGE` → `ApplyIslandLayout()`；DPI 采用「移完再取」的两遍算法） |
+| 位置锁不会把重算挡回去 | ✅ 处理消息时临时解锁 `_positionLocked`，算完再锁回新矩形 |
+| 界面固定深色主题（不再依赖系统主题 + 手工刷资源） | ⏳ 待运行核对（`App.xaml` 的 `RequestedTheme="Dark"`；看板里原有的半透明白指针态资源保持不变） |
+| 动画热路径不再白造字符串 | ✅ `UpdateIslandShape` 的逐帧日志先判 `Diagnostics.IsEnabled` |
+| 关闭程序 / 展开收起 / 看板两个视图不受影响 | ✅ 只加钩子与重算逻辑，界面代码一行没改；构建 0 警告 0 错误 |
+
 ---
 
 ## 五、已知限制 / 下一步 TODO
@@ -347,7 +390,7 @@ DashboardIslandControl.OnCloseClick
 * **鼠标穿透开关**：`IslandWindowStyler.ApplyChrome()` 里加 `WS_EX_TRANSPARENT | WS_EX_LAYERED` + 运行时开关
 * **点击交互**：`IslandShell` 里订阅指针事件（目前刻意不接，只有悬停判定）
 * **托盘图标 + 开机自启**：`MainWindow` 构造函数（退出入口已经做了：看板右下角那个图标按钮）
-* **WM_DPICHANGED / WM_DISPLAYCHANGE**：显示器缩放或主屏变化后重算尺寸与居中
+* **WM_DPICHANGED / WM_DISPLAYCHANGE**：已在 `IslandWindowStyler` 的子类化里处理（缩放/分辨率/主屏变化后重算窗口矩形与形状）；剩下的是**多显示器**策略 —— 目前固定钉在主屏顶部居中，不跟随光标所在屏
 * **外部配置文件**：`IslandOptions` 改为读 exe 同目录的 `island.config.json`
 * **形状同步帧率**：目前外轮廓约 30Hz（`DispatcherTimer`），如果觉得边缘不够顺，
   可以把它挪到独立线程做更高频率的 `SetWindowRgn`
@@ -412,14 +455,14 @@ dotnet publish Capsyn.csproj -c Release -p:Platform=x64 -r win-x64 `
   （原来叫 `Capsyn-backup`，改名后 GitHub 会让旧地址自动跳转，但文档和脚本统一用新地址；
   本地 clone 想换过来就执行一次
   `git remote set-url origin https://github.com/SQW-Rool/Capsyn.git`）
-* 提交内容：源码与配置。`bin/`、`obj/`、`.vs/`、`.tools/`、`capsyn-diag.log` 都已被 `.gitignore` 忽略。
+* 提交内容：源码与配置。`bin/`、`obj/`、`.vs/`、`.tools/`、`capsyn-diag.log`、`capsyn-crash.log` 都已被 `.gitignore` 忽略。
 * 约定：**本地构建通过（0 警告 0 错误）+ 运行验收通过之后**才提交推送；提交信息写清本次改动，
   重要节点同时打 tag，GitHub 的提交历史 + tag 就是回滚锚点。
 * 一键备份脚本（`tools/backup-to-github.ps1`）：
 
 ```powershell
 cd G:\Capsyn
-powershell -ExecutionPolicy Bypass -File .\tools\backup-to-github.ps1 -Message "改了什么" -Tag v0.3.1-ProjectChange
+powershell -ExecutionPolicy Bypass -File .\tools\backup-to-github.ps1 -Message "改了什么" -Tag v0.3.1-ProjectChange-U2
 # 不需要 tag 时省略 -Tag
 ```
 
@@ -470,3 +513,17 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     ③ 删掉重复写了两遍的 `<WindowsAppSDKSelfContained>`；④ README 第六节补自包含发布命令与这两个坑的说明。
     实测：`dotnet build` 0 警告 0 错误；框架依赖与自包含两种 publish 的产物都含
     `Capsyn.exe` + 5 个 `.xbf` + `Capsyn.pri`（自包含 509 文件 / 约 210 MB）。
+  * `v0.3.1-ProjectChange-U2` —— **健壮性整改**，界面表现不变（都是「整程序」级别的处理）：
+    ① **单实例保护**：命名 Mutex `Capsyn.SingleInstance`，第二个进程记日志后直接退出 ——
+    双击两次、或以后「开机自启 + 手动打开」都不会出现两个胶囊叠在一起；
+    ② **未处理异常兜底**：`Application.UnhandledException` / `AppDomain` / `UnobservedTaskException`
+    全部写 exe 同目录的 `capsyn-crash.log`（**不受 `CAPSYN_DIAG` 限制**），UI 线程异常记完
+    标记已处理、程序继续活着（定时器与过场都是 `async void`，否则一出错整只岛就静默消失）；
+    ③ **缩放 / 分辨率 / 主屏变化**：子类化里处理 `WM_DPICHANGED` / `WM_DISPLAYCHANGE`，
+    重算窗口矩形并按最近的形状进度重算窗口区域；配套两个细节 —— 位置锁会把 `MoveAndResize`
+    拦回去（先临时解锁、算完锁回新矩形），DPI 改成「移完再取」的两遍算法（窗口刚创建时可能
+    还停在别的显示器上）；
+    ④ `App.xaml` 固定 `RequestedTheme="Dark"`，控件不再跟随系统主题（浅色主题下露浅底的问题从根上消掉）；
+    ⑤ 动画热路径的逐帧日志先判 `Diagnostics.IsEnabled`，不再白造字符串；
+    ⑥ 顺手：`IslandOptions` 注释里不存在的 tag 名改对、删掉无用的 `x:Name`、`.gitignore` 收掉崩溃日志。
+    实测：干净构建 Debug + Release 均 0 警告 0 错误。

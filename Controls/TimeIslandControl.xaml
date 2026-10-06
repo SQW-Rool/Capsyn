@@ -15,7 +15,6 @@
     -->
     <Grid Background="{x:Null}">
         <TextBlock
-            x:Name="TimeText"
             Text="{x:Bind ViewModel.CurrentTime, Mode=OneWay}"
             FontFamily="{x:Bind ViewModel.FontFamily}"
             FontSize="{x:Bind ViewModel.FontSize}"

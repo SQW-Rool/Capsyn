@@ -2,7 +2,8 @@
 <Application
     x:Class="Capsyn.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    RequestedTheme="Dark">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -10,8 +11,9 @@
             </ResourceDictionary.MergedDictionaries>
 
             <!--
-                WinUI 3 的窗口宿主会用「页面背景」主题色填充客户区（浅色主题下是纯白），
-                胶囊圆角以外就会露出四个白角。这里把它改成完全透明。
+                岛永远是黑色，所以整个应用固定走深色主题：
+                否则控件会跟随系统主题，浅色主题下按钮/开关/提示条都是浅色底，在纯黑上很突兀
+                （看板里那些半透明白的指针态资源，就是在手工补这个洞）。
             -->
             <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="Transparent" />
         </ResourceDictionary>

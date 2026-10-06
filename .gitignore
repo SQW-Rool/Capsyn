@@ -6,8 +6,9 @@ obj/
 .tools/
 probe*.txt
 
-# 诊断日志（CAPSYN_DIAG=1 时才会生成）
+# 诊断日志（CAPSYN_DIAG=1 时才会生成）与崩溃日志（永远写）
 capsyn-diag.log
+capsyn-crash.log
 
 # Visual Studio / Rider / VS Code
 .vs/

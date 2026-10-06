@@ -110,7 +110,8 @@ public sealed class IslandOptions
     public TimeSpan ContentFadeOutDuration { get; init; } = TimeSpan.FromMilliseconds(120);
 
     // 注：内容整体放大 + 卡片/按钮错帧「生长动画」已按需求删除，内容只做透明度过渡。
-    // 需要恢复时可以从 git 历史里找回 IslandAnimator 的旧实现（对应 tag v0.3.0-power-island）。
+    // 需要恢复时可以从 git 历史里找回 IslandAnimator 的旧实现（删除前的最后一个版本是 tag v0.2.2；
+    // 电源岛整块删除在 v0.2.3-Power-Modified）。
 
     // ---------------- 交互 ----------------
 

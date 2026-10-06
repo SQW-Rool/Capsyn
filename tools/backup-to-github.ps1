@@ -9,7 +9,7 @@
 
     只提交源码与配置：bin / obj / .vs / .tools 都已在 .gitignore 里忽略。
     每次改动验证通过后执行一次，GitHub 上的提交历史就是回滚参考；
-    建议同时打 tag（例如 v0.3.1-ProjectChange），回滚时直接 checkout 对应 tag。
+    建议同时打 tag（例如 v0.3.1-ProjectChange-U2），回滚时直接 checkout 对应 tag。
 
 .EXAMPLE
     cd G:\Capsyn
