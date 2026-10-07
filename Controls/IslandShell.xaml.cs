@@ -74,6 +74,17 @@ public sealed partial class IslandShell : UserControl
     /// <summary>看板岛是否展开。</summary>
     public bool IsExpanded => _expanded;
 
+    /// <summary>
+    /// 【Phase 0 实验用】把岛体底色改成本颜色的半透明版本，用来观察窗口背景材质（Mica/Acrylic）是否生效。
+    /// 只在设置窗口材质实验里被调用（<see cref="Services.IslandBackdrop"/>），默认路径不会调用它。
+    /// </summary>
+    public void SetBodyOpacity(double opacity)
+    {
+        var brush = new SolidColorBrush(ColorHelper.Parse(_options.PillColor, Microsoft.UI.Colors.Black));
+        brush.Opacity = Math.Clamp(opacity, 0.0, 1.0);
+        IslandBackdrop.Background = brush;
+    }
+
     private void ApplyGeometry()
     {
         // 整块底板铺满窗口（窗口本身比岛大，含弹簧回弹余量），形状怎么变底下都是黑的。

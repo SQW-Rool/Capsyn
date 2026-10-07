@@ -25,6 +25,9 @@ public sealed partial class MainWindow : Window
         // 1) 无边框 / 不进任务栏和 Alt+Tab / 置顶 / 不画系统边框。
         _styler.ApplyChrome();
 
+        // 1.5) 【Phase 0 实验钩子】只有设了 CAPSYN_BACKDROP 时才改窗口背景材质，默认什么都不做。
+        IslandBackdrop.Apply(this, Island);
+
         // 2) 先藏起来，等位置和形状都算好再显示，避免在默认位置闪一下。
         NativeMethods.ShowWindow(hwnd, NativeMethods.SW_HIDE);
 

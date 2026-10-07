@@ -8,64 +8,73 @@
     mc:Ignorable="d">
 
     <UserControl.Resources>
+        <!--
+            Phase 2：这组样式全部走 Themes/Tokens.xaml 的 token（不再写字面数值），
+            并补齐 Disabled 状态与卡片阴影。
+            依据：[WinUI Gallery](https://github.com/microsoft/WinUI-Gallery) 的官方控件样式
+            （按钮四态用标准资源键覆盖）+ [Materials / Fluent 层级](https://learn.microsoft.com/en-us/windows/apps/develop/ui/materials)。
+        -->
+
+        <!-- 卡片阴影：Fluent 的层级感（ThemeShadow 需要 Translation 抬 Z 才看得出来） -->
+
         <!-- 卡片：半透明白底 + 细描边，压在看板的纯黑底上 -->
         <Style x:Key="CardBorder" TargetType="Border">
-            <Setter Property="Background" Value="#1AFFFFFF" />
-            <Setter Property="BorderBrush" Value="#26FFFFFF" />
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusLarge}" />
             <Setter Property="Padding" Value="14,12" />
         </Style>
 
         <Style x:Key="CardLabel" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Foreground" Value="#8CFFFFFF" />
+            <Setter Property="FontSize" Value="{ThemeResource TypeCaptionSize}" />
+            <Setter Property="Foreground" Value="{ThemeResource TextTertiaryBrush}" />
         </Style>
 
         <Style x:Key="CardValue" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontSize" Value="{ThemeResource TypeSubtitleSize}" />
             <Setter Property="FontFamily" Value="Cascadia Code" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="#FFFFFFFF" />
+            <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
         </Style>
 
         <Style x:Key="BarTrack" TargetType="Border">
-            <Setter Property="Background" Value="#26FFFFFF" />
-            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Background" Value="{ThemeResource SubtleHoverBrush}" />
+            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusSmall}" />
         </Style>
 
         <Style x:Key="BarFill" TargetType="Border">
-            <Setter Property="Background" Value="#FF7CC0FF" />
-            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Background" Value="{ThemeResource MetricNetworkTintBrush}" />
+            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusSmall}" />
             <Setter Property="HorizontalAlignment" Value="Left" />
         </Style>
 
-        <!-- 右下角的圆形图标按钮：40 × 40，只有图标没有文字，几个按钮共用这套尺寸 -->
+        <!-- 右下角的圆形图标按钮：40 × 40（8px 网格），只有图标没有文字，几个按钮共用这套尺寸 -->
         <Style x:Key="IconButton" TargetType="Button">
             <Setter Property="Width" Value="40" />
             <Setter Property="Height" Value="40" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="CornerRadius" Value="20" />
-            <Setter Property="Background" Value="#1AFFFFFF" />
-            <Setter Property="BorderBrush" Value="#2EFFFFFF" />
+            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusPill}" />
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardBorderStrongBrush}" />
             <Setter Property="BorderThickness" Value="1" />
         </Style>
 
         <!-- 「关闭程序」是危险动作：在 IconButton 基础上换成红底 / 红边 -->
         <Style x:Key="CloseIconButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
-            <Setter Property="Background" Value="#2EFF453A" />
-            <Setter Property="BorderBrush" Value="#66FF453A" />
+            <Setter Property="Background" Value="{ThemeResource CriticalTintWeakBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CriticalTintStrongBrush}" />
         </Style>
 
         <!-- 带文字的功能按钮：「时间工具」和三个工具按钮共用 -->
         <Style x:Key="ToolButton" TargetType="Button">
-            <Setter Property="Padding" Value="16,9" />
-            <Setter Property="CornerRadius" Value="12" />
-            <Setter Property="Background" Value="#1AFFFFFF" />
-            <Setter Property="BorderBrush" Value="#2EFFFFFF" />
+            <Setter Property="Padding" Value="{ThemeResource SpacingInsetMedium}" />
+            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusMedium}" />
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardBorderStrongBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="Foreground" Value="#FFFFFFFF" />
+            <Setter Property="FontSize" Value="{ThemeResource TypeBodySize}" />
+            <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -77,30 +86,35 @@
             底色淡染（18%）+ 彩色描边 + 亮色文字，和「关闭程序」那套红是同一个做法。
         -->
         <Style x:Key="StopwatchToolStyle" TargetType="Button" BasedOn="{StaticResource ToolButton}">
-            <Setter Property="Background" Value="#2E0A84FF" />
-            <Setter Property="BorderBrush" Value="#660A84FF" />
-            <Setter Property="Foreground" Value="#FF7AB8FF" />
+            <Setter Property="Background" Value="{ThemeResource AccentTintWeakBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource AccentTintStrongBrush}" />
+            <Setter Property="Foreground" Value="{ThemeResource AccentTextBrush}" />
         </Style>
 
         <Style x:Key="CountdownToolStyle" TargetType="Button" BasedOn="{StaticResource ToolButton}">
-            <Setter Property="Background" Value="#2EFF9F0A" />
-            <Setter Property="BorderBrush" Value="#66FF9F0A" />
-            <Setter Property="Foreground" Value="#FFFFC46B" />
+            <Setter Property="Background" Value="{ThemeResource WarningTintWeakBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource WarningTintStrongBrush}" />
+            <Setter Property="Foreground" Value="{ThemeResource WarningTextBrush}" />
         </Style>
 
         <Style x:Key="AlarmToolStyle" TargetType="Button" BasedOn="{StaticResource ToolButton}">
-            <Setter Property="Background" Value="#2EBF5AF2" />
-            <Setter Property="BorderBrush" Value="#66BF5AF2" />
-            <Setter Property="Foreground" Value="#FFD3A6FF" />
+            <Setter Property="Background" Value="{ThemeResource SecondaryAccentTintWeakBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource SecondaryAccentTintStrongBrush}" />
+            <Setter Property="Foreground" Value="{ThemeResource SecondaryAccentTextBrush}" />
         </Style>
 
-        <!-- 把默认按钮态刷成半透明白，免得在纯黑底上出现浅色主题的灰块 -->
-        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#26FFFFFF" />
-        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#33FFFFFF" />
-        <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFFFFFFF" />
-        <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#B3FFFFFF" />
-        <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#4DFFFFFF" />
-        <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#4DFFFFFF" />
+        <!--
+            把默认按钮态的刷子刷成半透明白，免得在纯黑底上出现浅色主题的灰块。
+            依据：WinUI 按钮模板用的就是这些标准资源键，覆盖它们即可统一四态（含 Disabled）。
+        -->
+        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="{ThemeResource SubtleHoverColor}" />
+        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="{ThemeResource SubtlePressedColor}" />
+        <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="{ThemeResource CardBackgroundColor}" />
+        <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{ThemeResource TextPrimaryColor}" />
+        <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="{ThemeResource TextTertiaryColor}" />
+        <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource TextSecondaryColor}" />
+        <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="{ThemeResource SubtleBorderHoverColor}" />
+        <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="{ThemeResource SubtleBorderHoverColor}" />
     </UserControl.Resources>
 
     <!--
@@ -173,7 +187,7 @@
                     <TextBlock
                         Text="{x:Bind ViewModel.MemoryText, Mode=OneWay}"
                         Style="{StaticResource CardValue}"
-                        FontSize="16" />
+                        FontSize="{ThemeResource TypeBodySize}" />
                     <Grid Height="6">
                         <Border Style="{StaticResource BarTrack}" />
                         <Border Style="{StaticResource BarFill}" Width="{x:Bind ViewModel.MemoryBarWidth, Mode=OneWay}" />
@@ -192,11 +206,11 @@
                     <TextBlock
                         Text="{x:Bind ViewModel.NetworkDownText, Mode=OneWay}"
                         Style="{StaticResource CardValue}"
-                        FontSize="15" />
+                        FontSize="{ThemeResource TypeBodySize}" />
                     <TextBlock
                         Text="{x:Bind ViewModel.NetworkUpText, Mode=OneWay}"
                         Style="{StaticResource CardValue}"
-                        FontSize="15" />
+                        FontSize="{ThemeResource TypeBodySize}" />
                 </StackPanel>
             </Border>
         </Grid>
@@ -217,15 +231,15 @@
                     Width="18"
                     Height="18"
                     Stretch="Uniform"
-                    Stroke="#FFFFFFFF"
+                    Stroke="{ThemeResource TextPrimaryBrush}"
                     StrokeThickness="1.8"
                     StrokeStartLineCap="Round"
                     StrokeEndLineCap="Round"
                     Data="M 12,3 A 9,9 0 1 1 11.99,3 M 12,12 L 12,6.5 M 12,12 L 16.5,14.5" />
                 <TextBlock
                     Text="时间工具"
-                    FontSize="14"
-                    Foreground="#FFFFFFFF"
+                    FontSize="{ThemeResource TypeBodySize}"
+                    Foreground="{ThemeResource TextPrimaryBrush}"
                     VerticalAlignment="Center" />
             </StackPanel>
         </Button>
@@ -247,7 +261,7 @@
                 Width="18"
                 Height="18"
                 Stretch="Uniform"
-                Stroke="#FFFFFFFF"
+                Stroke="{ThemeResource TextPrimaryBrush}"
                 StrokeThickness="1.8"
                 StrokeStartLineCap="Round"
                 StrokeEndLineCap="Round"
@@ -277,12 +291,12 @@
                 Style="{StaticResource StopwatchToolStyle}">
 
                 <Button.Resources>
-                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#400A84FF" />
-                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#520A84FF" />
-                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#800A84FF" />
-                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#990A84FF" />
-                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFA8D2FF" />
-                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#FFCBE4FF" />
+                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="{ThemeResource AccentTintSoftColor}" />
+                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="{ThemeResource AccentTintMediumColor}" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="{ThemeResource AccentTintHeavyColor}" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="{ThemeResource AccentTintMaxColor}" />
+                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{ThemeResource AccentForegroundHoverColor}" />
+                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource AccentForegroundPressedColor}" />
                 </Button.Resources>
             </Button>
 
@@ -295,12 +309,12 @@
                 Style="{StaticResource CountdownToolStyle}">
 
                 <Button.Resources>
-                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#40FF9F0A" />
-                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#52FF9F0A" />
-                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#80FF9F0A" />
-                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#99FF9F0A" />
-                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFFFD79A" />
-                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#FFFFE7C2" />
+                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="{ThemeResource WarningTintSoftColor}" />
+                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="{ThemeResource WarningTintMediumColor}" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="{ThemeResource WarningTintHeavyColor}" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="{ThemeResource WarningTintMaxColor}" />
+                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{ThemeResource WarningForegroundHoverColor}" />
+                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource WarningForegroundPressedColor}" />
                 </Button.Resources>
             </Button>
 
@@ -313,12 +327,12 @@
                 Style="{StaticResource AlarmToolStyle}">
 
                 <Button.Resources>
-                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#40BF5AF2" />
-                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#52BF5AF2" />
-                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#80BF5AF2" />
-                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#99BF5AF2" />
-                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFDDBBFF" />
-                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#FFEEDAFF" />
+                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="{ThemeResource SecondaryAccentTintSoftColor}" />
+                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="{ThemeResource SecondaryAccentTintMediumColor}" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="{ThemeResource SecondaryAccentTintHeavyColor}" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="{ThemeResource SecondaryAccentTintMaxColor}" />
+                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{ThemeResource SecondaryAccentForegroundHoverColor}" />
+                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource SecondaryAccentForegroundPressedColor}" />
                 </Button.Resources>
             </Button>
         </Grid>
@@ -330,7 +344,7 @@
             Grid.Row="1"
             Height="1"
             Margin="0,14,0,0"
-            Background="#24FFFFFF"
+            Background="{ThemeResource DividerBrush}"
             HorizontalAlignment="Stretch" />
 
         <!-- 第 3 行右下角：「设置」「关闭程序」两个圆形图标按钮 -->
@@ -354,7 +368,7 @@
                     Width="18"
                     Height="18"
                     Stretch="Uniform"
-                    Stroke="#FFFFFFFF"
+                    Stroke="{ThemeResource TextPrimaryBrush}"
                     StrokeThickness="1.8"
                     StrokeStartLineCap="Round"
                     StrokeEndLineCap="Round"
@@ -369,12 +383,12 @@
 
                 <!-- 这个按钮的指针态也走红色系，悬停时不会变回白灰 -->
                 <Button.Resources>
-                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#40FF453A" />
-                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#52FF453A" />
-                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#80FF453A" />
-                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#99FF453A" />
-                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFFF9A93" />
-                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#FFFFC2BD" />
+                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="{ThemeResource CriticalTintSoftColor}" />
+                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="{ThemeResource CriticalTintMediumColor}" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="{ThemeResource CriticalTintHeavyColor}" />
+                    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="{ThemeResource CriticalTintMaxColor}" />
+                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{ThemeResource CriticalTextColor}" />
+                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource CriticalForegroundPressedColor}" />
                 </Button.Resources>
 
                 <!-- 电源图标：矢量路径（圆环缺口 + 竖杠），不依赖任何图标字体 -->
@@ -382,7 +396,7 @@
                     Width="18"
                     Height="18"
                     Stretch="Uniform"
-                    Stroke="#FFFF7A72"
+                    Stroke="{ThemeResource CriticalStrokeBrush}"
                     StrokeThickness="1.8"
                     StrokeStartLineCap="Round"
                     StrokeEndLineCap="Round"

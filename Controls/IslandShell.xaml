@@ -21,7 +21,7 @@
     <Grid x:Name="ShellRoot" Background="{x:Null}">
 
         <!-- 1) 纯黑底板：铺满整个窗口（默认 Stretch） -->
-        <Border x:Name="IslandBackdrop" Background="#FF000000" />
+        <Border x:Name="IslandBackdrop" Background="{ThemeResource IslandSurfaceBrush}" />
 
         <!-- 2) 看板岛内容（右下角自带「关闭程序」图标按钮） -->
         <controls:DashboardIslandControl

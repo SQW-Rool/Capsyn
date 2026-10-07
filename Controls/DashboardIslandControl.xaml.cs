@@ -25,10 +25,10 @@ namespace Capsyn.Controls;
 public sealed partial class DashboardIslandControl : UserControl
 {
     /// <summary>过场：新视图淡入 + 滑入的时长。</summary>
-    private static readonly TimeSpan ViewEnterDuration = TimeSpan.FromMilliseconds(340);
+    private static readonly TimeSpan ViewEnterDuration = MotionTokens.Normal;
 
     /// <summary>过场：旧视图淡出 + 滑走的时长（比入场短，先把位置让出来）。</summary>
-    private static readonly TimeSpan ViewExitDuration = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan ViewExitDuration = MotionTokens.Fast;
 
     /// <summary>过场：新视图的滑动距离（DIP）。</summary>
     private const float ViewSlideDistance = 48f;
@@ -37,7 +37,7 @@ public sealed partial class DashboardIslandControl : UserControl
     private const float ViewExitParallax = 0.6f;
 
     /// <summary>复位时用的「瞬时」动画时长：走一段 1ms 的动画把属性显式推到目标值。</summary>
-    private static readonly TimeSpan SnapDuration = TimeSpan.FromMilliseconds(1);
+    private static readonly TimeSpan SnapDuration = MotionTokens.Instant;
 
     private readonly DispatcherTimer _timer;
     private bool _sampling;
@@ -60,6 +60,9 @@ public sealed partial class DashboardIslandControl : UserControl
         _timer.Tick += OnTimerTick;
 
         Loaded += OnLoaded;
+
+        // Phase 2/3：给底部这几个图标按钮挂统一指针反馈（hover 放大 / 按下缩小，Composition 隐式动画）
+        Loaded += (_, _) => InteractiveAnimations.AttachToButtons(TimeToolsButton, SettingsButton, CloseButton);
         Unloaded += OnUnloaded;
     }
 

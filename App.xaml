@@ -8,6 +8,13 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+
+                <!--
+                    Phase 1：统一视觉 token（颜色 / 圆角 / 间距 / 字体层级 / 图标尺寸 / 动效时长与缓动）。
+                    控件与页面只引用这里的 key，不再写死色值和数值。
+                    依据与取舍写在 Themes/Tokens.xaml 顶部注释里。
+                -->
+                <ResourceDictionary Source="ms-appx:///Themes/Tokens.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <!--

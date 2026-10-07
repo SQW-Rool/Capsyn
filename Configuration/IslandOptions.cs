@@ -96,18 +96,18 @@ public sealed class IslandOptions
     public float SpringDampingRatio { get; init; } = 0.62f;
 
     /// <summary>展开弹簧周期：越小越快。420ms 大约 300ms 长完，末尾有一点点回弹。</summary>
-    public TimeSpan SpringPeriod { get; init; } = TimeSpan.FromMilliseconds(420);
+    public TimeSpan SpringPeriod { get; init; } = MotionTokens.SpringPeriodExpand;
 
     /// <summary>收起弹簧阻尼比（收敛快、不弹）。</summary>
     public float CollapseSpringDampingRatio { get; init; } = 0.9f;
 
-    public TimeSpan CollapseSpringPeriod { get; init; } = TimeSpan.FromMilliseconds(220);
+    public TimeSpan CollapseSpringPeriod { get; init; } = MotionTokens.SpringPeriodCollapse;
 
     /// <summary>看板内容淡入时长。</summary>
-    public TimeSpan ContentFadeInDuration { get; init; } = TimeSpan.FromMilliseconds(240);
+    public TimeSpan ContentFadeInDuration { get; init; } = MotionTokens.Normal;
 
     /// <summary>看板内容淡出时长。</summary>
-    public TimeSpan ContentFadeOutDuration { get; init; } = TimeSpan.FromMilliseconds(120);
+    public TimeSpan ContentFadeOutDuration { get; init; } = MotionTokens.Fast;
 
     // 注：内容整体放大 + 卡片/按钮错帧「生长动画」已按需求删除，内容只做透明度过渡。
     // 需要恢复时可以从 git 历史里找回 IslandAnimator 的旧实现（删除前的最后一个版本是 tag v0.2.2；

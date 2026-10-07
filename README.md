@@ -30,6 +30,48 @@
   `Microsoft.Win32.TaskScheduler` 注册的 `Capsyn_AutoStart` 计划任务、MOTW 清理等）**不在这份代码里**，
   需要时去 git 历史里找（相关 tag 已按要求删除，提交仍可按 SHA 查阅）。
 
+### 视觉体系（Phase 1：统一 token，进行中）
+
+> 状态：**工作区改动尚未提交**（代码与 `v0.3.1-ProjectChange-U2.1` 相比多了这一批视觉体系改造）。
+
+设计依据（可追溯，全部为官方文档 / 官方样例仓库）：
+
+| 依据 | 支持什么 |
+| --- | --- |
+| [System backdrops (Mica/Acrylic)](https://learn.microsoft.com/en-us/windows/apps/develop/ui/system-backdrops) | Mica = 不透明基础层；Acrylic = 半透明 transient 浮层；`Window.SystemBackdrop`、`IsSupported()` 运行时判断与回退（WinAppSDK 1.3+） |
+| [Materials overview](https://learn.microsoft.com/en-us/windows/apps/develop/ui/materials) | 材质与主题资源的整体规则 |
+| [Fluent 2 Typography](https://fluent2.microsoft.design/typography) | Caption / Body / Subtitle / Title 的字号 + 行高 + 字重 |
+| [Motion in practice](https://learn.microsoft.com/en-us/windows/apps/develop/motion/motion-in-practice) | 动效三档时长与缓动曲线 |
+| [XAML 与 Composition 互操作](https://learn.microsoft.com/en-us/windows/apps/develop/composition/xaml-comp-interop) | hover/press 用 `ElementCompositionPreview` + 隐式动画的挂法 |
+| [Segoe Fluent Icons](https://learn.microsoft.com/en-us/windows/apps/design/style/segoe-fluent-icons-font) | 图标字形与 8px 网格对齐 |
+| [WinUI Gallery](https://github.com/microsoft/WinUI-Gallery) ／ [`SampleSystemBackdropsWindow`](https://github.com/microsoft/WinUI-Gallery/blob/main/WinUIGallery/SampleSupport/SamplePages/SampleSystemBackdropsWindow.xaml.cs) | 控件模板、视觉状态、SystemBackdrop 接线的**官方**参考实现 |
+| [WindowsAppSDK-Samples / Mica](https://github.com/microsoft/WindowsAppSDK-Samples/tree/main/Samples/Mica) | Win32 窗口 + Mica 的官方样例 |
+
+`Themes/Tokens.xaml`（230 行）是唯一的视觉数值来源：
+
+* **颜色**：`Dark` / `Light` / `HighContrast` **三套主题字典**，每组 28 个 key（语义：岛面、卡片底/边、分隔线、文字三级、交互态、主色 + 辅助色 + Success/Warning/Critical）；
+* **强调色状态层**：4 个强调色各 6 档 tint（0.18 / 0.25 / 0.32 / 0.40 / 0.50 / 0.60，与迁移前的 `#2E/#40/#52/#66/#80/#99` 一一对应）+ Hover/Pressed 文字色；
+* **圆角** 4/8/12/16/20/胶囊 ｜ **间距** 4/8/12/16/24 + 3 个 Thickness ｜ **字体层级** Caption 12·Body 14·Subtitle 20·Title 28 ｜ **图标** 16/20/24；
+* **动效**：三档时长 `Fast 150 / Normal 300 / Slow 500`（同时提供 ms 与 seconds 两套）+ 弹簧物理参数 `Period 420/220`、`Damping 0.62/0.9` + 统一缓动 `EasingDecelerate`(EaseOut) / `EasingStandard`。
+
+**结构规则（踩过的坑，务必遵守）**：
+1. `ThemeDictionaries` 内三个字典**各自写全同一组 key** 才是正确写法；
+2. **外层**（ThemeDictionaries 之外）的 `x:Key` 必须全局唯一 —— 重复会让 XAML 编译器直接失败（`XamlCompiler.exe` 退出码 1，报错信息不指向具体行）；
+3. `ResourceDictionary` 的文本**不要用脚本大范围替换** —— 会误删主题字典内容；改 token 请用逐段 edit + 下方自检。
+
+**自检命令**（每次动 token 后跑一次）：
+```powershell
+# 外层 key 是否唯一 + 所有 ThemeResource 引用是否都有定义
+$tk='G:\Capsyn\Themes\Tokens.xaml'; $t=Get-Content $tk -Raw
+$outer=$t.Substring($t.IndexOf('</ResourceDictionary.ThemeDictionaries>'))
+$dup=[regex]::Matches($outer,'x:Key="([^"]+)"')|%{$_.Groups[1].Value}|Group-Object|? Count -gt 1
+if($dup){'❌ 外层重复: '+($dup.Name -join ', ')}else{'✅ 外层 key 唯一'}
+```
+
+**迁移进度**：XAML 侧硬编码颜色 **62 → 1**（剩余 1 处在注释里，属于说明文字）✓；`IslandShell.xaml` 已 0 处 ✓。
+**待办**：C# 侧 10 处动画时长（收敛到三档）、4 处字号（走 type ramp）、控件模板重写（Phase 2）、窗口材质（Phase 4）。
+
+
 
 ---
 
