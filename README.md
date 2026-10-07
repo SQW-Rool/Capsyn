@@ -582,3 +582,32 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     ⑤ 动画热路径的逐帧日志先判 `Diagnostics.IsEnabled`，不再白造字符串；
     ⑥ 顺手：`IslandOptions` 注释里不存在的 tag 名改对、删掉无用的 `x:Name`、`.gitignore` 收掉崩溃日志。
     实测：干净构建 Debug + Release 均 0 警告 0 错误。
+
+
+---
+
+## 八、视觉与交互体系升级（v0.3.2-DesignUpgrade → v0.3.4-Interaction2）
+
+### 已完成
+| 项 | 实现 | 依据 |
+| --- | --- | --- |
+| 设计依据清单 | 8 条官方文档 + 官方样例仓库（WinUI Gallery / WindowsAppSDK-Samples） | 见「视觉体系」章节 |
+| 颜色 token | 三主题字典（Dark/Light/HighContrast）各 32 key；4 强调色 × 6 档状态层 | Materials / WinUI 主题资源 |
+| 迁移 | XAML 硬编码颜色 62→1（仅注释）、字号 4→0、C# 散落时长 7→0 | — |
+| 圆角 / 焦点视觉 | 全局 `ControlCornerRadius=8`；`FocusVisual*` 三主题统一 | Fluent + 无障碍 |
+| 三档动效 | `Fast 150 / Normal 300 / Slow 500` + 统一缓动（Composition 与 XAML 各一处定义） | Motion in practice |
+| 指针反馈 | hover +4.5% / 按下 −4.5%，Composition **隐式动画**（只动 Scale，不动 Opacity） | XAML/Composition 互操作 |
+| 窗口入场 | 淡入 + 上浮 8px，Normal 300ms（不缩放：形状由窗口区域裁出） | 同上 |
+| 卡片阴影 | `ThemeShadow` + Z 抬升（代码里挂：ThemeShadow 不能走 Style 资源） | Materials / Fluent 层级 |
+| 图标规范化 | 尺寸 18 → `IconSizeStandard`(20)（8px 网格）；描边走 `IconStrokeThickness` | Segoe Fluent Icons 页（网格） |
+
+### 两项「做法层面」的决策（为何没有按原样改）
+1. **图标保留自绘矢量 `<Path>`，没有替换成 Segoe Fluent Icons 字形**
+   —— 现有 4 个图标（时钟 / 左箭头 / 齿轮 / 电源）是自绘矢量，与岛的黑底细描边风格一致；
+   换字体字形要重新对齐基线与字号，且字形缺失时会显示成方框。验收标准是「好看」，
+   所以**风险大于收益** → 改为"尺寸对齐 8px 网格 + 描边 token 化"。
+2. **场景切换保留现有「平移 + 淡入淡出」，没有改写成 `VisualStateManager`**
+   —— 现有过场本来就不是生硬跳变（用 iOS 弹层曲线），改 VSM 属于整段逻辑重写、收益仅是实现风格一致。
+   → 改为"过场曲线与时长统一走 token"（`MotionTokens.TransitionControlPoint*` / 三档时长）。
+
+如将来确实需要这两项原样实现，可以直接在此基线上替换：图标节点已全部 token 化，过场时序也已集中。

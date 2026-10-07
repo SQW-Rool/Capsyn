@@ -36,6 +36,14 @@ internal static class MotionTokens
     public const float EasingControlPoint2X = 0.2f;
     public const float EasingControlPoint2Y = 1.0f;
 
+    // ---------------- 场景过场曲线（iOS 弹层那条 cubic-bezier(0.32, 0.72, 0, 1)） ----------------
+    // 与 8px 网格 / 三档时长无关，是"过场手感"的专用曲线：起手快、收尾柔和。
+
+    public const float TransitionControlPoint1X = 0.32f;
+    public const float TransitionControlPoint1Y = 0.72f;
+    public const float TransitionControlPoint2X = 0f;
+    public const float TransitionControlPoint2Y = 1f;
+
     // ---------------- 弹簧物理参数（保留原手感，不归三档时长） ----------------
 
     /// <summary>展开弹簧周期。</summary>

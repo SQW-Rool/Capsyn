@@ -228,6 +228,7 @@
     <x:Double x:Key="IconSizeSmall">16</x:Double>
     <x:Double x:Key="IconSizeStandard">20</x:Double>
     <x:Double x:Key="IconSizeLarge">24</x:Double>
+    <x:Double x:Key="IconStrokeThickness">1.8</x:Double>
 
     <!-- ==================== 动效：三档时长 + 弹簧物理参数 + 统一缓动 ==================== -->
     <x:Double x:Key="DurationFastMs">150</x:Double>
