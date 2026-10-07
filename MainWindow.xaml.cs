@@ -52,7 +52,10 @@ public sealed partial class MainWindow : Window
         _styler.UpdateIslandShape(scaleX, scaleY);      // 收起态：窗口只露出时间岛胶囊
 
         Activate();                                  // 显示窗口（此时还未禁止激活，保证一定可见）
-        _styler.ApplyPostShowPolicy();               // 不抢焦点 + 压到最顶层 + 锁死位置
+        _styler.ApplyPostShowPolicy();
+
+        // Phase 3：窗口入场动效（淡入 + 轻微上浮，Normal 300ms，Composition）
+        WindowAnimations.PlayEnter(Island);               // 不抢焦点 + 压到最顶层 + 锁死位置
     }
 
     private void OnIslandShapeProgress(double panelScaleX, double panelScaleY)

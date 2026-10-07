@@ -63,6 +63,9 @@ public sealed partial class DashboardIslandControl : UserControl
 
         // Phase 2/3：给底部这几个图标按钮挂统一指针反馈（hover 放大 / 按下缩小，Composition 隐式动画）
         Loaded += (_, _) => InteractiveAnimations.AttachToButtons(TimeToolsButton, SettingsButton, CloseButton);
+
+        // Phase 2：给三张指标卡挂 Fluent 阴影（ThemeShadow 不能在 Style 里资源化，见 CardElevation 注释）
+        Loaded += (_, _) => CardElevation.ApplyCardElevation(this, Resources["CardBorder"] as Style);
         Unloaded += OnUnloaded;
     }
 

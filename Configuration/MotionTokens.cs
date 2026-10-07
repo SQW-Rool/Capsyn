@@ -28,6 +28,14 @@ internal static class MotionTokens
     /// <summary>500ms —— 大范围或需要强调的过渡。</summary>
     public static readonly TimeSpan Slow = TimeSpan.FromMilliseconds(500);
 
+    // ---------------- 统一缓动（Composition 侧用；XAML 侧对应 Tokens.xaml 的 EasingDecelerate） ----------------
+    // 减速曲线（快起慢收），与 Fluent 的"入场/反馈"节奏一致：cubic-bezier(0.1, 0.9, 0.2, 1.0)
+
+    public const float EasingControlPoint1X = 0.1f;
+    public const float EasingControlPoint1Y = 0.9f;
+    public const float EasingControlPoint2X = 0.2f;
+    public const float EasingControlPoint2Y = 1.0f;
+
     // ---------------- 弹簧物理参数（保留原手感，不归三档时长） ----------------
 
     /// <summary>展开弹簧周期。</summary>
