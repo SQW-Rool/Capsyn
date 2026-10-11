@@ -611,3 +611,73 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
    → 改为"过场曲线与时长统一走 token"（`MotionTokens.TransitionControlPoint*` / 三档时长）。
 
 如将来确实需要这两项原样实现，可以直接在此基线上替换：图标节点已全部 token 化，过场时序也已集中。
+
+---
+
+---
+
+## 九、文件路径树与结构整理
+
+> 自动生成（排除 `bin/` `obj/` `.vs/` `.tools/`），括号内为行数。当前源文件共 37 个。
+
+```
+Capsyn/
+├── Configuration/
+│   ├── IslandOptions.cs  (90 行)
+│   └── MotionTokens.cs  (47 行)
+├── Controls/
+│   ├── DashboardIslandControl.xaml  (267 行)
+│   ├── DashboardIslandControl.xaml.cs  (227 行)
+│   ├── IslandShell.xaml  (34 行)
+│   ├── IslandShell.xaml.cs  (251 行)
+│   ├── TimeIslandControl.xaml  (26 行)
+│   └── TimeIslandControl.xaml.cs  (38 行)
+├── Helpers/
+│   └── ColorHelper.cs  (27 行)
+├── Interop/
+│   └── NativeMethods.cs  (170 行)
+├── Models/
+│   └── SystemMetrics.cs  (15 行)
+├── Services/
+│   ├── CardElevation.cs  (55 行)
+│   ├── Diagnostics.cs  (63 行)
+│   ├── InteractiveAnimations.cs  (68 行)
+│   ├── IslandAnimator.cs  (39 行)
+│   ├── IslandBackdrop.cs  (77 行)
+│   ├── IslandWindowStyler.cs  (330 行)
+│   ├── SingleInstance.cs  (33 行)
+│   ├── SpringScalar.cs  (62 行)
+│   ├── SystemMetricsProvider.cs  (128 行)
+│   └── WindowAnimations.cs  (43 行)
+├── Themes/
+│   ├── DashboardStyles.xaml  (101 行)
+│   └── Tokens.xaml  (260 行)
+├── tools/
+│   └── backup-to-github.ps1  (53 行)
+├── ViewModels/
+│   ├── DashboardViewModel.cs  (101 行)
+│   ├── ObservableObject.cs  (21 行)
+│   └── TimeIslandViewModel.cs  (41 行)
+├── .gitignore
+├── app.manifest  (28 行)
+├── App.xaml  (27 行)
+├── App.xaml.cs  (53 行)
+├── Capsyn.csproj  (77 行)
+├── Capsyn.sln  (24 行)
+├── MainWindow.xaml  (13 行)
+├── MainWindow.xaml.cs  (61 行)
+├── nuget.config  (24 行)
+└── README.md  (572 行)
+```
+
+### 结构整理进度（越拆越细，每步都构建 0 警告 0 错误）
+
+| 步骤 | 内容 | 状态 |
+| --- | --- | --- |
+| ① | 把看板样式从页面抽到独立资源字典 `Themes/DashboardStyles.xaml`（101 行）<br>→ `DashboardIslandControl.xaml` **363 → 267 行**，页面只剩布局 | ✅ 已完成 |
+| ② | `partial class` 拆分（零行为变化）：<br>`IslandWindowStyler.cs`(330) → `.Chrome` / `.Region` / `.Display` / `.Subclass`<br>`IslandShell.xaml.cs`(251) → `.State` / `.Hover` / `.Shape`<br>`DashboardIslandControl.xaml.cs`(227) → `.Views` / `.Metrics` / `.Animations` / `.Interaction`<br>`IslandOptions.cs`(90) → `.Layout` / `.Animation` / `.Data` | ⏳ 待做 |
+| ③ | `Interop/NativeMethods.cs`(170) → `WindowMethods` / `CompositionMethods` / `GdiMethods` / `Structs` | ⏳ 待做 |
+| ④ | 视图拆成独立 `UserControl`：指标页 / 时间工具页 / 底部按钮（会改代码引用，风险最高，最后做） | ⏳ 待做 |
+
+**拆分原则**：① ② ③ 三步都是"纯搬移"（同一个类分散到多个文件 / 资源换位置），**零行为变化**，每步构建验证；
+第 ④ 步会改到按名字访问元素的代码，单独一轮做。
