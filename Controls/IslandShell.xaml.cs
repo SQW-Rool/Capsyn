@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using System.Numerics;
+using Microsoft.UI.Composition;
+using Microsoft.UI.Xaml.Hosting;
 using Capsyn.Configuration;
 using Capsyn.Helpers;
 using Capsyn.Interop;
@@ -258,6 +261,19 @@ public sealed partial class IslandShell : UserControl
         _shapeSyncTimer.Stop();
     }
 
+    /// <summary>收起态的内容缩放：跟着弹簧从 0.94 长到 1.0（等比缩放，避免文字被拉伸）。</summary>
+    private const double ContentScaleFrom = 0.94;
+
+    /// <summary>内容根元素的 Composition Visual（首次用时取）。</summary>
+    private Visual? _contentVisual;
+
+    /// <summary>把内容缩放到指定倍数；缩放中心固定在内容顶部中央，视觉上是"从上方长出来"。</summary>
+    private void ApplyContentSpringScale(double scale)
+    {
+        _contentVisual ??= ElementCompositionPreview.GetElementVisual(Dashboard);
+        _contentVisual.CenterPoint = new Vector3((float)(Dashboard.ActualWidth / 2.0), 0f, 0f);
+        _contentVisual.Scale = new Vector3((float)scale, (float)scale, 1f);
+    }
     private void OnShapeSyncTick(object? sender, object e)
     {
         var elapsedSeconds = _shapeClock.Elapsed.TotalSeconds;
@@ -268,6 +284,11 @@ public sealed partial class IslandShell : UserControl
 
         var targetPanel = _expanded ? 1.0 : 0.0;
         var panelProgress = Math.Clamp(_panelSpring.Value, 0.0, 1.2);
+
+        // 内容跟着看板弹簧一起长：用**同一个弹簧进度**驱动内容等比缩放（从顶部中心展开），
+        // 于是指标卡 / 按钮不是"先摆好再淡入"，而是随着面板一起长出来。
+        var contentScale = ContentScaleFrom + ((1.0 - ContentScaleFrom) * panelProgress);
+        ApplyContentSpringScale(contentScale);
 
         // 看板：横向从胶囊宽度长到看板宽度，纵向从 0 高长到看板高度。
         var panelScaleX = _options.CollapsedScaleX + ((1.0 - _options.CollapsedScaleX) * panelProgress);
