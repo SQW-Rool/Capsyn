@@ -9,10 +9,12 @@
     mc:Ignorable="d">
 
     <!--
-        「岛」的外壳：一块画布（比看板略大，给弹簧回弹留余量），里面三层
+        「岛」的外壳：一块画布（比看板略大，给弹簧回弹留余量），里面四层
           1) 整块铺满的纯黑底板 —— 可见形状完全由窗口区域裁出来，回弹/生长时都不会露白底
           2) 看板岛内容 —— Composition 动画只做透明度，生长动画已按需求删除
-          3) 时钟 —— 始终可见
+          3) 时钟 / 监测区胶囊 —— 收起/展开都在最上层
+          4) 第二个计时的独立小圆岛 —— 平时藏在胶囊左边（Opacity 0、不参与窗口区域），
+             两个计时同时跑时淡入并让胶囊往右让半个圆
 
         可见形状（圆角、缝隙、生长与回弹中的轮廓）由窗口区域逐帧裁剪给出：
         WinUI 客户区是不透明的，所以「底板铺满 + 区域裁剪」是唯一不露白的办法。
@@ -30,10 +32,17 @@
             HorizontalAlignment="Center"
             VerticalAlignment="Top" />
 
-        <!-- 3) 时钟：收起/展开都在最上层，位置不变 -->
+        <!-- 3) 时钟 / 监测区：位置由外壳按「胶囊宽 + 是否让位给小圆」逐帧推 Translation -->
         <controls:TimeIslandControl
             x:Name="Clock"
             HorizontalAlignment="Center"
             VerticalAlignment="Top" />
+
+        <!-- 4) 第二个计时的独立小圆岛（左对齐，靠 Translation 摆到胶囊左边） -->
+        <controls:TimerDotControl
+            x:Name="TimerDot"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Opacity="0" />
     </Grid>
 </UserControl>

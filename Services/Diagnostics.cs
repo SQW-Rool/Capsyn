@@ -56,11 +56,25 @@ internal static class Diagnostics
         {
             lock (Gate)
             {
-                File.AppendAllText(
-                    CrashPath,
-                    $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}  [{context}]{Environment.NewLine}"
-                    + $"{exception}{Environment.NewLine}{Environment.NewLine}",
-                    Utf8WithBom);
+                // XamlParseException 之类的异常，真正的原因常常只在 InnerException 里
+                // （外层只给一句「Cannot create instance of type ...」），所以把内层链也一起写下来。
+                var builder = new StringBuilder();
+                builder.Append($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}  [{context}]{Environment.NewLine}");
+                builder.Append(exception).Append(Environment.NewLine);
+
+                var inner = exception.InnerException;
+                var depth = 1;
+                while (inner is not null && depth <= 5)
+                {
+                    builder.Append($"  --- InnerException[{depth}] ---{Environment.NewLine}");
+                    builder.Append(inner).Append(Environment.NewLine);
+                    inner = inner.InnerException;
+                    depth++;
+                }
+
+                builder.Append(Environment.NewLine);
+
+                File.AppendAllText(CrashPath, builder.ToString(), Utf8WithBom);
             }
         }
         catch (Exception)

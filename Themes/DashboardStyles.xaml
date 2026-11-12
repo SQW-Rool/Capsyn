@@ -114,4 +114,90 @@
         <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource TextSecondaryColor}" />
         <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="{ThemeResource SubtleBorderHoverColor}" />
         <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="{ThemeResource SubtleBorderHoverColor}" />
+
+        <!-- ==================== 时间工具视图（Phase 4） ==================== -->
+
+        <!--
+            分段控件：外面一圈卡片色边框，里面三个透明按钮 + 一条跟着模式滑动的指示条。
+            指示条的颜色（强调色系）由代码按当前模式设置 —— 正计时蓝 / 倒计时橙 / 闹钟紫。
+        -->
+        <Style x:Key="SegmentFrame" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusMedium}" />
+        </Style>
+
+        <Style x:Key="SegmentButton" TargetType="Button">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusStandard}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="FontSize" Value="{ThemeResource TypeBodySize}" />
+            <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <!-- 预设 / 闹钟加减用的小胶囊：一行四等分，高度 40 -->
+        <Style x:Key="PresetChip" TargetType="Button">
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusMedium}" />
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="{ThemeResource TypeCaptionSize}" />
+            <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <!--
+            主 / 次操作按钮：高度 48、圆角 12。
+            主按钮的底色 / 描边 / 字色按模式在代码里换（蓝 / 橙 / 紫），见 ApplyModeVisuals()。
+        -->
+        <Style x:Key="PrimaryActionButton" TargetType="Button">
+            <Setter Property="Height" Value="48" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusMedium}" />
+            <Setter Property="Background" Value="{ThemeResource AccentTintStrongBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource AccentTintMaxBrush}" />
+            <Setter Property="Foreground" Value="{ThemeResource AccentTextBrush}" />
+            <Setter Property="FontSize" Value="{ThemeResource TypeBodySize}" />
+            <Setter Property="FontWeight" Value="{ThemeResource TypeStrongWeight}" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="SecondaryActionButton" TargetType="Button" BasedOn="{StaticResource PrimaryActionButton}">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardBorderStrongBrush}" />
+            <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+        </Style>
+
+        <!-- 大读数：等宽（Cascadia Code），52px；宽度固定住，数字位数变化时整组不左右跳 -->
+        <Style x:Key="HeroReadout" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Cascadia Code" />
+            <Setter Property="FontSize" Value="52" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+            <Setter Property="IsTextScaleFactorEnabled" Value="False" />
+        </Style>
+
+        <Style x:Key="HeroCaption" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{ThemeResource TypeCaptionSize}" />
+            <Setter Property="Foreground" Value="{ThemeResource TextTertiaryBrush}" />
+        </Style>
+
+        <Style x:Key="ToolsTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{ThemeResource TypeSubtitleSize}" />
+            <Setter Property="FontWeight" Value="{ThemeResource TypeStrongWeight}" />
+            <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
 </ResourceDictionary>

@@ -23,8 +23,13 @@
     <!-- WinUI/WinAppSDK 会给 RuntimeIdentifiers 注入 win-x86;win-x64;win-arm64。
          本机只跑 x64，这里显式收窄，免得 restore 去要另外两个架构的包。 -->
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
-    <!-- .NET 运行时用系统已装的框架依赖版本（本机已安装 .NET 9 桌面运行时）。 -->
+    <!-- .NET 运行时用系统已装的框架依赖版本。
+         本机没装 .NET 9 运行时（只有 8.0 / 10.0 / 11.0），框架依赖的 net9.0 程序
+         默认只认 9.x，启动会报「You must install or update .NET」。
+         RollForward=Major 允许它在更高的大版本运行时上跑（这里会落到 10.0.x），
+         不想改动本机环境也能直接 F5。装了 .NET 9 运行时后这行留着也无害。 -->
     <SelfContained>false</SelfContained>
+    <RollForward>Major</RollForward>
     <!--
       离线构建的关键开关：框架依赖（SelfContained=false）的构建不需要 RID 专用「运行时包」，
       但 .NET SDK 默认会把它们写进 restore 的下载依赖：

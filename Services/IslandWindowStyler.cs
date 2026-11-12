@@ -45,13 +45,14 @@ internal sealed class IslandWindowStyler
     private double _scale = 1.0;
 
     // 上一次提交给系统的形状，避免每帧都做重复的 SetWindowRgn。
-    private int _lastPillKey = -1;
+    private int _lastPillLeft = -1;
+    private int _lastPillWidth = -1;
+    private int _lastDotKey = -1;
     private int _lastPanelWidth = -1;
     private int _lastPanelHeight = -1;
 
-    // 最近一次提交的形状进度：DPI / 分辨率变化后要按它把窗口区域重算一遍。
-    private double _lastScaleX = double.NaN;
-    private double _lastScaleY = double.NaN;
+    // 最近一次提交的形状：DPI / 分辨率变化后要按它把窗口区域重算一遍。
+    private IslandShapeSnapshot? _lastShape;
 
     public IslandWindowStyler(Window window, IntPtr hwnd, IslandOptions options)
     {
@@ -165,14 +166,16 @@ internal sealed class IslandWindowStyler
             ApplyLayoutPass();
         }
 
-        // 位置 / 缩放变了，上一次提交的区域不再有效：清掉去重键，并按最近的形状进度重算一次。
-        _lastPillKey = -1;
+        // 位置 / 缩放变了，上一次提交的区域不再有效：清掉去重键，并按最近的形状重算一次。
+        _lastPillLeft = -1;
+        _lastPillWidth = -1;
+        _lastDotKey = -1;
         _lastPanelWidth = -1;
         _lastPanelHeight = -1;
 
-        if (!double.IsNaN(_lastScaleX))
+        if (_lastShape is { } shape)
         {
-            UpdateIslandShape(_lastScaleX, _lastScaleY);
+            UpdateIslandShape(shape);
         }
     }
 
@@ -205,48 +208,58 @@ internal sealed class IslandWindowStyler
     }
 
     /// <summary>
-    /// 按动画进度更新窗口区域：胶囊（固定）∪ 看板（弹簧缩放中的尺寸）。
+    /// 按当前动画姿态更新窗口区域：胶囊（宽度会变）∪ 看板（弹簧中的宽 × 高）。
     /// 这是「看得见的形状」唯一来源，所以动画期间会被逐帧调用。
+    ///
+    /// 可见轮廓现在是**三块**的并集：
+    ///   * 胶囊：时钟 320 / 监测区 172，左边界由外壳算好（有第二计时时会往右让半个圆）；
+    ///   * **独立小圆岛**：第二个计时缩成的那颗圆，出现进度 &gt; 0 才参与区域；
+    ///   * 看板：展开时从胶囊宽长到 550 宽、从 0 长到当前视图高度。
     /// </summary>
-    /// <param name="panelScaleX">看板当前 ScaleX（收起 = 胶囊宽 / 看板宽）。</param>
-    /// <param name="panelScaleY">看板当前 ScaleY（收起 = 0，展开 = 1）。</param>
-    public void UpdateIslandShape(double panelScaleX, double panelScaleY)
+    public void UpdateIslandShape(IslandShapeSnapshot shape)
     {
         if (_width <= 0 || _height <= 0)
         {
             return;
         }
 
-        var scaleX = Math.Clamp(panelScaleX, 0, 1.2);
-        var scaleY = Math.Clamp(panelScaleY, 0, 1.2);
+        _lastShape = shape;
 
-        var pillWidth = (int)Math.Round(_options.Width * _scale);
+        var progress = Math.Clamp(shape.CornerProgress, 0, 1);
+
+        var pillLeft = (int)Math.Round(shape.PillLeft * _scale);
+        var pillWidth = (int)Math.Round(Math.Max(2, shape.PillWidth) * _scale);
         var pillHeight = (int)Math.Round(_options.Height * _scale);
-        var pillLeft = (int)Math.Round(_options.PillLeft * _scale);
         var pillRadius = (int)Math.Round(_options.CornerRadius * _scale);
 
-        var panelWidth = (int)Math.Round(_options.ExpandedWidth * _scale * scaleX);
-        var panelHeight = (int)Math.Round(_options.ExpandedHeight * _scale * scaleY);
+        var showDot = shape.DotOpacity > 0.02;
+        var dotSize = (int)Math.Round(Math.Max(2, shape.DotSize) * _scale);
+        var dotLeft = (int)Math.Round(shape.DotLeft * _scale);
+
+        var panelWidth = (int)Math.Round(Math.Max(0, shape.PanelWidth) * _scale);
+        var panelHeight = (int)Math.Round(Math.Max(0, shape.PanelHeight) * _scale);
 
         // 形状没变就不要再提交（动画期间同一像素尺寸会重复出现很多帧）。
-        var pillKey = HashCode.Combine(pillWidth, pillHeight, pillLeft, pillRadius);
-        if (pillKey == _lastPillKey
+        var dotKey = showDot ? HashCode.Combine(dotLeft, dotSize) : 0;
+        if (pillLeft == _lastPillLeft
+            && pillWidth == _lastPillWidth
+            && dotKey == _lastDotKey
             && panelWidth == _lastPanelWidth
             && panelHeight == _lastPanelHeight)
         {
             return;
         }
 
-        _lastPillKey = pillKey;
+        _lastPillLeft = pillLeft;
+        _lastPillWidth = pillWidth;
+        _lastDotKey = dotKey;
         _lastPanelWidth = panelWidth;
         _lastPanelHeight = panelHeight;
-        _lastScaleX = panelScaleX;
-        _lastScaleY = panelScaleY;
 
         // 这行在动画期间是**逐帧**走的：字符串插值发生在调用之前，所以先看开关，别白造字符串。
         if (Diagnostics.IsEnabled)
         {
-            Diagnostics.Log($"region apply: pill {pillWidth}x{pillHeight} + panel {panelWidth}x{panelHeight}");
+            Diagnostics.Log($"region apply: pill {pillWidth}x{pillHeight} + dot {(showDot ? dotSize : 0)} + panel {panelWidth}x{panelHeight}");
         }
 
         var region = NativeMethods.CreateRoundRectRgn(
@@ -262,10 +275,27 @@ internal sealed class IslandWindowStyler
             return;
         }
 
+        // 独立小圆岛：正方形 + 圆角 = 圆
+        if (showDot && dotSize >= 2)
+        {
+            var dotRegion = NativeMethods.CreateRoundRectRgn(
+                dotLeft,
+                0,
+                dotLeft + dotSize + 1,
+                dotSize + 1,
+                dotSize,
+                dotSize);
+
+            if (dotRegion != IntPtr.Zero)
+            {
+                NativeMethods.CombineRgn(region, region, dotRegion, NativeMethods.RGN_OR);
+                NativeMethods.DeleteObject(dotRegion);
+            }
+        }
+
         if (panelWidth >= 2 && panelHeight >= 2)
         {
             // 看板圆角随生长从一个小圆角过渡到最终圆角；半径不能超过短边的一半。
-            var progress = Math.Clamp(scaleY, 0, 1);
             var panelRadius = (int)Math.Round((10 + ((_options.ExpandedCornerRadius - 10) * progress)) * _scale);
             panelRadius = Math.Max(1, Math.Min(panelRadius, Math.Min(panelWidth, panelHeight) / 2));
 

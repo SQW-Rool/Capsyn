@@ -2,30 +2,56 @@
 
 一个常驻屏幕顶部中央的悬浮小组件，模仿 iOS 14+ Dynamic Island 的视觉：
 
-* **时间岛（收起态）**：一枚 320 × 40 的纯黑超圆角胶囊，里面每秒跳动 `HH:MM:SS`，固定在屏幕顶部居中。
-* **看板岛（展开态）**：鼠标移到时间岛上，**它的下方**用弹簧动画长出一块 550 × 350 的看板，
-  里面两个视图（只切可见性，尺寸 / 动画都不变）：
+* **时间岛（收起态）**：一枚纯黑超圆角胶囊，固定在屏幕顶部居中，**三种形态**：
+  * 平时：320 × 40，里面每秒跳动 `HH:MM:SS`；
+  * **有计时占用时变成「监测区」**：时钟消失，换成「模式图标 + `mm:ss`」（172 宽），
+    比如收起后依然能看见秒表在走、倒计时还剩多久；
+  * **两个计时同时占用**：新开的那个在胶囊里（图标 + 读数），原来的**缩成旁边一颗独立的圆形小岛**
+    （40 × 40，只有模式图标 + 一圈进度环）—— 是**两块分开的岛**，不是一个岛里塞个圆；
+    两颗岛整体居中，胶囊为它让出半个圆的宽度；点小圆可以把两个计时换位。
+    **闹钟不算占用**（不会把时钟挤掉），而且计时在收起 / 展开之间一直走。
+* **看板岛（展开态）**：鼠标移到时间岛上，**它的下方**用弹簧动画长出一块看板，里面三个视图
+  （只切可见性；**高度按视图变**：指标 350 / 时间工具与设置 430、300，切换时按弹簧长高、缩矮）：
   * **指标**（默认）：第一行 **CPU / 内存 / 网络上下行** 三张数据卡，下面一条横线，
-    左下是「时间工具」按钮（时钟图标 + 文字），右下角两个圆形图标按钮 ——「设置」（目前只有 UI，
-    点击不接任何动作）和红色「关闭程序」（退出应用的唯一入口）；
-  * **时间工具**（点左下「时间工具」进入）：左上角「返回」，中间一排「正计时 / 倒计时 / 闹钟」三个按钮
-    （按需求**先只做 UI**），右下角两个图标按钮照常在。
-  两个视图之间是 **iOS 风格的 push / pop 过场**（旧视图往一侧滑出、新视图从另一侧滑入，带轻微视差）。
-  其余空间先留空，给通知 / 音乐 / 计时器。
+    左下是「时间工具」按钮（时钟图标 + 文字），右下角两个圆形图标按钮 ——「设置」（进设置视图）
+    和红色「关闭程序」（退出应用的唯一入口）；
+  * **时间工具**（点左下「时间工具」进入，看板长高 80）：左上角「返回」+ 标题，下面是一条
+    **分段控件**（正计时 / 倒计时 / 闹钟），再往下是 **环形进度 + 大字读数** 和模式自己的操作行：
+    * **正计时**：环 = 当前这一分钟走过的比例，读数 `mm:ss.f`，操作行是「记一圈 / 上一圈」；
+    * **倒计时**：环 = 剩余比例，读数 `mm:ss`，操作行是 1 / 3 / 5 / 10 分钟预设；
+    * **闹钟**：读数 `HH:mm`，操作行是 ±1 / ±5 分钟微调，主按钮启用 / 取消；
+    三个模式都**真的在计时**（不是只有 UI），右下角两个图标按钮照常，并跟着看板底边一起上下滑。
+  * **设置**（点右下角 ⚙ 进入，看板换成 300 高）：目前是**铃声**板块 ——
+    闹钟铃声 / 倒计时铃声**各 5 个内置音效**（默认都是第一个），点一下就选中并试听，
+    选择立刻存盘（`%LOCALAPPDATA%\Capsyn\settings.json`）。
+  三个视图之间是 **iOS 风格的 push / pop 过场**（旧视图往一侧滑出、新视图从另一侧滑入，带轻微视差）。
+* **到点提醒**：倒计时归零 / 闹钟到点 → **岛自动展开成「提醒面板」**（第二级弹窗，挂在胶囊下面，
+  不再是屏幕中央的独立窗口），内容 = 铃铛/沙漏 + 时间 + 「停止」（闹钟多一个「稍后 5 分钟」），
+  同时循环播放对应铃声（倒计时最长 30 秒、闹钟最长 2 分钟），停铃 / 关提醒即静音。
+  铃声可在设置里分开选（各 5 个内置音效，默认第一个），也可以选自己的音频文件。
 * 鼠标移开 → 延迟一点点平滑收回胶囊。
 
 * 技术栈：WinUI 3（C#）+ Windows App SDK 1.8，动画用 **Composition API**（弹簧 + 内容淡入淡出；条目错帧的「生长动画」已按需求移除）
 * 模板形态：**Unpackaged（未打包）** —— 不需要 MSIX、不需要签名，直接跑 exe
-* 目标环境：本机运行（.NET 9 + Windows App Runtime 1.8 已安装）
+* 目标环境：本机运行（.NET 9 或更高 + Windows App Runtime 1.8 已安装；本机没有 .NET 9 运行时，
+  靠 `Capsyn.csproj` 里的 `<RollForward>Major</RollForward>` 落到已装的 .NET 10）
 
 ### 当前版本状态（快照）
 
-* 代码与远端 `main` 完全一致，对应 tag **`v0.3.1-ProjectChange-U2`**（commit `f2381a0`）。
-* **已实现**：时间岛胶囊；看板岛（指标 / 时间工具两页 + iOS 风格 push/pop 过场）；弹簧驱动的窗口形状；
-  置顶 / 不进任务栏 / 点击不抢焦点 / 位置启动算一次后焊死；单实例保护；未处理异常兜底（`capsyn-crash.log`）；
-  显示器与 DPI 变化处理；固定深色主题。
-* **刻意只做 UI / 没做**：看板右下角的 ⚙「设置」按钮（当前不接任何动作）、时间工具页的三个计时按钮、
-  托盘图标、开机自启、设置面板。
+* 当前发布版本：tag **`v4.0.0-beta`**（在远端 `main` 的 `v0.3.6-Refactor` 之后）。
+* 这一版集中在**时间工具**：真能用的正计时 / 倒计时 / 闹钟、收起后的顶部监测区（含第二块独立小圆岛）、
+  设置页的铃声板块（5+5 内置音效 + 自定义音频）、到点提醒面板（岛自动展开 + 响铃）；
+  另外修掉了 NuGet 兜底目录、.NET 9 运行时缺失、`CardBorder` 资源查找、静态初始化顺序等一批问题。
+  详见第七节的 `v4.0.0-beta` 条目。
+* **已实现**：时间岛胶囊（时钟 / 监测区，宽度会随占用变化）；看板岛（指标 / 时间工具 / 设置 / 到点提醒
+  四个视图 + iOS 风格 push/pop 过场 + 视图高度弹簧；时间工具里的正计时 / 倒计时 / 闹钟**都是能用的**，
+  含记一圈、预设、闹钟启用/取消；**到点提醒**：岛自动展开成提醒面板 + 响铃；
+  设置页的**铃声板块**（各 5 个内置音效 + 自定义音频文件、分开设置、存盘）；
+  **收起后顶部胶囊继续显示正在跑的计时**，两个计时同时占用时旧的缩成**旁边一颗独立小圆岛**、点小圆换位；
+  弹簧驱动的窗口形状；置顶 / 不进任务栏 / 点击不抢焦点 / 位置启动算一次后焊死；单实例保护；
+  未处理异常兜底（`capsyn-crash.log`）；显示器与 DPI 变化处理；固定深色主题。
+* **刻意只做 UI / 没做**：托盘图标、开机自启、设置页里的其它板块（音量 / 主题等）、
+  闹钟的贪睡次数上限、提醒面板里的「再来一次」按钮。
 * 曾经实现过、后来又**整体撤销**的东西（独立的设置程序 `CapsynSettings.exe`、`--settings` 模式、
   `Microsoft.Win32.TaskScheduler` 注册的 `Capsyn_AutoStart` 计划任务、MOTW 清理等）**不在这份代码里**，
   需要时去 git 历史里找（相关 tag 已按要求删除，提交仍可按 SHA 查阅）。
@@ -123,9 +149,11 @@ UI 线程上的异常记完会标记为「已处理」，让悬浮岛继续活�
 | `App.xaml` / `App.xaml.cs` | 应用入口；固定深色主题、把窗口宿主的页面背景色改成透明；单实例保护 + 未处理异常兜底 |
 | `MainWindow.xaml(.cs)` | **只有壳**：把窗口、位置、置顶等系统行为与岛壳接起来 |
 | `Controls/IslandShell.xaml(.cs)` | **岛的状态机与外轮廓**：悬停判定、展开/收起、弹簧驱动的窗口形状、Composition 动画 |
-| `Controls/TimeIslandControl.xaml(.cs)` | **时间岛**：`HH:MM:SS` 文本 + 每秒刷新的 `DispatcherTimer` |
-| `Controls/DashboardIslandControl.xaml(.cs)` | **看板岛**：550 × 350，两个视图（指标 / 时间工具）只切可见性；右下角常驻「设置」「关闭程序」两个圆形图标按钮 |
+| `Controls/TimeIslandControl.xaml(.cs)` | **时间岛胶囊**：时钟 / 监测区两种形态，宽度 320 / 172；形态切换有 Fast 档过场 |
+| `Controls/TimerDotControl.xaml(.cs)` | **第二个计时的独立小圆岛**：40 × 40 圆 + 进度环 + 模式图标，点一下换到主位 |
+| `Controls/DashboardIslandControl.xaml(.cs)` | **看板岛**：550 宽，指标 350 / 时间工具 430 / 设置 360 / 到点提醒 180；四个视图只切可见性，分段控件 + 环形读数 + 铃声板块 + 提醒面板 + 跟着底边滑的共用页脚 |
 | `ViewModels/TimeIslandViewModel.cs` | `CurrentTime`（可绑定属性，24 小时制）与字体/配色 |
+| `ViewModels/TimeToolsViewModel.cs` | 时间工具的状态机（**单例 `Shared`**，工具页和顶部胶囊共用）：正计时（含记一圈）/ 倒计时（预设、deadline 计时）/ 闹钟；还管胶囊的占用顺序（主 / 次）与 `RingingChanged`（响铃开始/结束） |
 | `ViewModels/DashboardViewModel.cs` | 指标的可绑定文本与进度条宽度；采样在线程池上跑 |
 | `ViewModels/ObservableObject.cs` | 极简 `INotifyPropertyChanged` 基类（不引入第三方 MVVM 库） |
 | `Models/SystemMetrics.cs` | 一次采样结果（CPU% / 内存 / 网络上下行） |
@@ -134,11 +162,14 @@ UI 线程上的异常记完会标记为「已处理」，让悬浮岛继续活�
 | `Services/SpringScalar.cs` | 阻尼弹簧积分器：驱动 Win32 窗口区域的外轮廓 |
 | `Services/IslandWindowStyler.cs` | 窗口系统行为：无边框、置顶、不进任务栏、不抢焦点、窗口区域裁剪、锁死位置、缩放/分辨率变化重算 |
 | `Services/SingleInstance.cs` | 单实例保护（命名 Mutex），避免两个胶囊叠在一起 |
-| `Services/Diagnostics.cs` | 开关式诊断日志（`CAPSYN_DIAG=1`）+ **永远写**的崩溃日志 |
+| `Services/Diagnostics.cs` | 开关式诊断日志（`CAPSYN_DIAG=1`）+ **永远写**的崩溃日志（含 InnerException 链） |
+| `Services/RingtoneLibrary.cs` | **10 个内置铃声**：代码合成的 WAV（闹钟 5 + 倒计时 5） |
+| `Services/RingtoneService.cs` | 铃声播放：落盘 + winmm `PlaySound`（循环 / 停 / 试听 / 自动超时） |
 | `Helpers/ColorHelper.cs` | `#RRGGBB` / `#AARRGGBB` 解析 |
 | `Configuration/IslandOptions.cs` | 全部可调参数：尺寸、缝隙、回弹余量、弹簧参数、淡入淡出时长、采样间隔 |
+| `Configuration/AppSettings.cs` | 用户设置（`%LOCALAPPDATA%\Capsyn\settings.json`）：闹钟 / 倒计时铃声序号 |
 | `Interop/NativeMethods.cs` | 用到的 Win32 / DWM / GDI P/Invoke |
-| `nuget.config` | 官方源 + 本机缓存兜底（见「六、环境说明」） |
+| `nuget.config` | 官方源 + 项目内包目录（见「六、环境说明」） |
 | `tools/backup-to-github.ps1` | 一键备份脚本（见「七、GitHub 仓库」） |
 
 ---
@@ -230,72 +261,189 @@ SetWindowRgn(hwnd, region, true);
 每次 Tick 重新读 `DateTime.Now`（而不是自增），格式 `HH:mm:ss`、`InvariantCulture`、24 小时制。
 字体 Cascadia Code、字号 17、SemiBold、白色；`IsTextScaleFactorEnabled="False"` 保证不被系统文字缩放撑破。
 
-### 11. 看板布局：两个视图（指标 / 时间工具）
-看板内容是一张 `550 × 350`、内边距 16 的 Grid，里面**两个视图只切可见性**
-（面板尺寸、窗口区域、弹簧动画完全不受影响）。
+### 11. 看板布局：两个视图（指标 / 时间工具），高度会变
+看板宽 550、内边距 16，**两个视图只切可见性**，但**高度不一样**：
+
+* 指标视图 **350**、时间工具视图 **430**（`IslandOptions.ExpandedHeight / ExpandedToolsHeight`）；
+* 窗口画布按最大的那个一次留够（`WindowHeight = 40 + 6 + 430 × 1.12 ≈ 528`），
+  切视图时只改**窗口区域**；`IslandShell` 里除了展开弹簧 `_panelSpring` 还有一根
+  **高度弹簧 `_heightSpring`**（单位 DIP，350 ↔ 430），所以看板是"长高 80 / 缩矮 80"，不是跳变；
+* 看板内容元素本身高度固定 = 430（`Dashboard.Height = MaxExpandedHeight`），切视图**不重排**；
+* 右下角那两个圆形按钮是**两个视图共用**的一层 `FooterLayer`，它始终贴着看板底边 ——
+  高度变化时由 `Dashboard.UpdatePanelHeight(当前高度)` 改它的 `Translation.Y`
+  （偏移 = 当前高度 − 430，指标视图时是 −80），只动合成属性，不触发布局。
 
 **视图 1（默认，指标）**：
 
 ```
 第 1 行  处理器(21% + 进度条)   内存(9.5/16.0 GB 59% + 进度条)   网络(↓ 9.6 KB/s / ↑ 1.5 KB/s)
-第 2 行  ────────────────────────── 一条 1px 半透明白横线 ──────────────────────────
+第 2 行  ────────────────────────── 一条 1px 半透明白横线 ──────────────（窗口内 y = 134，两个视图共用）
 第 3 行  [ 🕐 时间工具 ]（左下）                  右下角：⚙「设置」  ⏻「关闭程序」
 ```
 
-**视图 2（时间工具，点左下「时间工具」进入）**：
+**视图 2（时间工具，点左下「时间工具」进入，看板长高到 430）**：
 
 ```
-第 1 行  ←「返回」（左上角）
-第 2 行  ────────────────────────── 一条 1px 半透明白横线 ──────────────────────────
-第 3 行        [ 正计时 ]      [ 倒计时 ]      [ 闹钟 ]   ← 紧贴横线下方 8px
-                                                右下角：⚙  ⏻
+第 0 行  ←「返回」  时间工具                                       （40 高）
+第 1 行  [ 正计时 | 倒计时 | 闹钟 ]  ← 分段控件，selected 段有滑动指示条   （44 高）
+第 2 行  ────────────────────────── 同一条横线，位置不变 ────────────────────
+第 3 行  (环形进度 96)   00:00.0 / 05:00 / 08:00 + 一行小字说明
+第 4 行  [ 记一圈 | 上一圈 00:12.3 ] / [ 1|3|5|10 分钟 ] / [ −5 | −1 | +1 | +5 分 ]
+第 5 行  [        开始 / 暂停 / 停止        ]  [ 复位 ]
+                                                     右下角：⚙  ⏻
 ```
 
-* 三张卡 / 三个工具按钮的可用宽度都 ≈ 164.7（`(550-32-24)/3`），因此 `DashboardViewModel.BarMaxWidth = 136`，
-  内存数值字号降到 16、网络两行降到 15 以适配。
-* 按钮都是普通 `Button` + **矢量 `Path` 图标**（不依赖 Segoe MDL2 / Fluent 图标字体，也不引入图片资源）；
+* 三张卡的可用宽度 ≈ 164.7（`(550-32-24)/3`），因此 `DashboardViewModel.BarMaxWidth = 136`。
+* 按钮都是普通 `Button` + **矢量 `Path` 图标**（不依赖图标字体，也不引入图片资源）；
   指针态主题资源在 `UserControl.Resources` 里就地覆盖成半透明白，避免在纯黑底上出现浅色主题的灰块。
   * **右下角两个圆形图标按钮**（`IconButton` 样式：40 × 40 / `CornerRadius 20` / 半透明白底 + 细描边，间距 12）：
     **设置**（齿轮图标，只有 UI）和 **关闭程序**（`CloseIconButton`，`BasedOn` 上面那个只换红底红边 + 浅红电源图标）。
-    两个视图里都常驻，右对齐 + 底对齐。
   * **左下「时间工具」**（`ToolButton` 样式：`Padding 16,9` / `CornerRadius 12` / 半透明白底 + 细描边）：
-    时钟矢量图标（圆环 + 两根指针）+ 文字，点击 → 视图 2。
+    时钟矢量图标 + 文字，点击 → 视图 2。
   * **左上「返回」**（`IconButton`）：左箭头矢量图标，点击 → 回视图 1。
-  * **正计时 / 倒计时 / 闹钟**（`ToolButton`，三列等宽、高 56、**靠上排** —— `VerticalAlignment="Top"` + 上边距 8px）：
-    **三个按钮各一个色系，好区分**（都 `BasedOn` `ToolButton`，只换底色/描边/字色 + 指针态）：
+  * **分段控件**（`SegmentFrame` + `SegmentButton` + 一条 `SegmentIndicator` 指示条）：
+    三个段等宽，指示条用模式色（蓝 / 橙 / 紫）的 25% 淡染，切模式时用 Fast 档的 `Translation` 动画滑过去；
+    `SizeChanged` 时按 `宽度 / 3` 重算指示条的宽度和位置。
+  * **环形进度**：`Ellipse`（暗色轨道）+ `Path`（进度弧），`Path.Data` 由
+    `UpdateRing(progress)` 用 `PathFigure + ArcSegment` 重算 —— 12 点方向起、顺时针扫 `progress × 360°`，
+    圆头端点；进度变化小于 0.01 时不重画（正计时 50ms 一跳，没必要每帧重建几何）。
+  * **读数**：`Cascadia Code` 52px（`HeroReadout` 样式），宽度固定 248，位数变化时整组不左右跳。
+  * **三种模式的配色**（沿用 iOS 深色模式取色，和指标卡那套 token 一致）：
 
-    | 按钮 | 主色（iOS 深色模式） | 底色 / 描边 / 文字 |
+    | 模式 | 主色 | 用在哪 |
     | --- | --- | --- |
-    | 正计时 | 蓝 `#0A84FF` | `#2E0A84FF` / `#660A84FF` / `#FF7AB8FF` |
-    | 倒计时 | 橙 `#FF9F0A` | `#2EFF9F0A` / `#66FF9F0A` / `#FFFFC46B` |
-    | 闹钟 | 紫 `#BF5AF2` | `#2EBF5AF2` / `#66BF5AF2` / `#FFD3A6FF` |
+    | 正计时 | 蓝 `#0A84FF` | 指示条 / 进度环 / 主按钮 / 分段文字 |
+    | 倒计时 | 橙 `#FF9F0A` | 同上 |
+    | 闹钟 | 紫 `#BF5AF2` | 同上 |
 
-    底色是 18% 的淡染、文字提亮，悬停 / 按下态各自加深（做法和「关闭程序」那套红一样）。
-    按需求**先只做 UI**，不接 `Click`、不写日志。
-* **过场动画（iOS 风格 push / pop）**：`DashboardIslandControl.SetTimeToolsVisible()` 里做：
+    响铃（时间到）时环画满一整圈、读数和小字都转成 `Critical` 红，主按钮变「停止」。
+* **时间工具是真的能用的**（`ViewModels/TimeToolsViewModel.cs`）：
+  * 正计时：`Stopwatch`，50ms tick，读数 `mm:ss.f`；「记一圈」记下与上一次记圈的差值（上一圈读数）；
+  * 倒计时：1/3/5/10 分钟预设，走**绝对时间（deadline）**而不是每 tick 减 100ms，UI 线程被挤住也不会走慢；
+    读数向上取整到秒，归零进「时间到」；
+  * 闹钟：`HH:mm` + ±1/±5 分钟微调，启用后算「下一次」（当天过了就明天），到点进「响铃中」；
+  * 计时器只在 `NeedsClock`（在跑 / 闹钟已启用）时开着，闲时零开销；面板收起也继续走，读数不丢。
+* **正计时 / 倒计时 / 闹钟之间的切换**：**只切内容、不做整块淡入淡出**（点段位 → `SelectMode()` →
+  指示条用 Fast 档滑到目标段，文字 / 环形进度 / 模式专属行 / 按钮文案直接换）。
+  * 曾经做过一版「内容淡出 + 位移 → 换内容 → 淡入」的过场，但偶发会停在半透明 / 偏移状态
+    （看起来像错位 / 被裁掉），**按需求整段撤掉了**，只保留指示条的滑动；
+  * 模式专属那一行（预设 / 分钟加减 / 记一圈）在 `ApplyModeRowVisibility()` 里按 VM 直接摆一遍，
+    不依赖 x:Bind 通知，避免两行同时可见叠在一起；
+  * 视图之间的 push / pop（指标 ↔ 工具 ↔ 设置 ↔ 提醒）保持不变，见下一条。
+* **过场动画（iOS 风格 push / pop）**：`DashboardIslandControl.SwitchTo()` 里做：
   * **push**（进工具视图）：旧视图往**左**淡出滑走、新视图从**右**滑进来；**pop**（返回）方向相反；
   * 旧视图滑走的距离只有新视图的 60%（`ViewExitParallax`），形成 iOS 那种轻微视差；
-  * 时长：入场 340ms、出场 200ms；曲线 **cubic-bezier(0.32, 0.72, 0, 1)**（iOS 弹层那条，起手快、收尾柔和）；
+  * 时长：入场 300ms（`MotionTokens.Normal`）、出场 150ms（`Fast`）；曲线 **cubic-bezier(0.32, 0.72, 0, 1)**；
   * 滑的是 **`Translation`** 而不是 `Offset` —— 后者是布局算出来的位置，动画收尾到 `(0,0)` 会把元素
     拽回父容器原点（先 `ElementCompositionPreview.SetIsTranslationEnabled(el, true)`，再按字符串键
     `"Translation"` 起动画，它在 WinUI 里没有强类型属性）；
   * 全程在**合成线程**上跑、不参与布局，UI 线程不用出帧，所以不掉帧；
   * 旧视图要等出场动画放完才 `Collapsed`（否则看不到淡出），收尾用序号 `_viewSwitchToken` 保护 ——
     连点「时间工具 / 返回」时只有最后一次收尾生效，不会把刚滑进来的视图又收掉；
-  * 两个视图在过场期间**同时可见**（一个在淡入、一个在淡出）；为此**第 1 行高度固定成 `104`**
-    （= 指标卡高度）而不是 `Auto` —— 否则旧视图收起时第 1 行会从 104 缩到 40（返回按钮的高度），
-    下面两行连同横线、三个按钮会整体往上跳 64px（这是踩过的坑）。
-* 视图切换会写一条 `dashboard view: metrics / time tools` 诊断日志。
+  * 视图切换时会同时发一个 `PreferredPanelHeightChanged(高度, 是否动画)` 给外壳，
+    高度动画和内容过场是两条互不干扰的线（一个改窗口区域、一个改合成属性）。
+* 视图切换会写一条 `dashboard view: metrics / time tools (panel 350 / 430 dip)` 诊断日志。
 * 切到工具视图时**指标采样照常在跑**（每秒一次），所以返回时数据是新的，不用重采样。
 * **每次展开都是指标视图**：看板从收起态展开时（`IslandShell.SetDashboardExpanded(true)` 里）会先调
   `Dashboard.ResetToMetricsView()` —— 只在真的「收起 → 展开」时走到那里，收起宽限期内把鼠标移回来
   （`_expanded` 已经是 true，方法提前 return）不会打断正在操作的工具视图。
+  复位时高度也直接落回 350（`animate: false`），展开动画只负责 0 → 350 那一段。
 * **复位为什么要「推」而不是「停」动画**：`Translation` 是
   `ElementCompositionPreview.SetIsTranslationEnabled()` 挂上去的动画属性，
-  用 `StopAnimation` 停掉**不保证回到 0** —— 上一次出场留在元素上的 -29px 会一直留着，
+  用 `StopAnimation` 停掉**不保证回到 0** —— 上一次出场留在元素上的位移会一直留着，
   表现就是「下次展开时整个看板内容错位」。所以复位时用一段 1ms 的动画
-  （`SnapToRest`）把 `Opacity` 推回 1、`Translation` 推回 0，四个元素都推一遍，
+  （`SnapToRest`）把 `Opacity` 推回 1、`Translation` 推回 0，两个视图都推一遍，
   并 `_viewSwitchToken++` 让还没收尾的那次过场失效。
+
+### 11.5 收起后的「监测区」：正在跑的计时显示在顶部
+看板收起后，顶部胶囊不再只是时钟，而是**变成计时监测区**（`TimeIslandControl` +
+`TimerDotControl` + `TimeToolsViewModel.Shared`）。规则：
+
+| 状态 | 长什么样 | 窗口区域 |
+| --- | --- | --- |
+| 没有计时 | 一颗胶囊，时钟 `HH:MM:SS` | 胶囊 320 × 40 |
+| **一个**计时（正计时或倒计时，跑着或暂停） | 时钟**消失**，胶囊里换成「模式图标 + `mm:ss`」，颜色跟模式走（蓝 / 橙） | 胶囊 172 × 40 |
+| **两个**计时 | **两块独立的岛**：新开的在胶囊里（图标 + 读数），原来那个变成**胶囊左边一颗独立的圆形小岛**（40 × 40，模式图标 + 一圈进度环）；点小圆可换位 | 胶囊 172×40 **∪** 圆 40×40（中间 10 缝） |
+| 闹钟启用 / 响铃 | **不算占用**：胶囊继续显示时钟（工具页里才有闹钟的响铃态） | 胶囊 320 × 40 |
+
+* 占用顺序由 `TimeToolsViewModel._activities`（`List<TimeToolMode>`）维护：
+  开始一个计时就 `Promote` 到最前面，复位就把自己 `Demote` 掉；
+  倒计时**到点会自动提到主位**（不然「时间到」缩在小圆里看不见）。
+* 这解决了两个真问题：
+  1. 面板收起后计时就"看不见了" —— 现在秒表在走、倒计时还剩多少，胶囊上一直有；
+  2. 两个计时同时跑时，不能只有最后一个可见 —— 两块岛各自显示，主位看读数、小圆看图标 + 进度环。
+* **两块岛是真的两块**：`IslandShapeSnapshot` 把「胶囊左/宽 + 小圆左/直径/出现进度 + 看板」一帧打包，
+  `IslandWindowStyler` 用 `CreateRoundRectRgn` 分别裁出胶囊、圆、看板再 `RGN_OR` 并起来 ——
+  所以圆是**独立的窗口区域**，不是塞进胶囊里的子元素，两块之间保持 10px 的真实缝隙（桌面透出来）。
+* 整组居中：小圆出现时胶囊往右让 `(40 + 10) / 2 = 25`（`PillShiftWithDot`），
+  圆和胶囊的中点始终落在屏幕中线上；让位是弹簧（`_dotSpring` 0→1），
+  小圆同时淡入 + 从 0.86 放大到 1（只动合成属性，不触发布局）。
+* 宽度怎么变：`TimeIslandControl` 只发 `PreferredWidthChanged(目标宽度)`，
+  外壳用弹簧 `_pillWidthSpring` 插值，**窗口区域同帧跟着变宽/变窄**；
+  位置靠 `Translation` 推（`Clock` / `TimerDot` 都开了 `SetIsTranslationEnabled`），不逐帧布局。
+  形态切换本身是 Fast 档的淡入淡出 + 6px 位移，且用序号防止连点错乱。
+* 时间工具状态是**单例** `TimeToolsViewModel.Shared`：工具页、胶囊、小圆绑同一个实例，
+  所以三边永远一致；tick 由外壳 `IslandShell` 统一驱动（它比这些控件活得久），
+  收起 / 展开不影响计时。
+* 小圆是 `Button`（不是装饰性 `Border`），键盘和读屏也能操作；`UseSystemFocusVisuals="False"`
+  避免点击后留一圈白色焦点环；圆里始终画一条暗色轨道环，进度小时也读得出「这是一个岛」。
+* 一个坑：`Shared` 是静态字段，静态字段按**声明顺序**初始化 —— 实例字段初始化器里引用
+  后面的静态字段（比如 `PresetSeconds[2]`）会拿到 `null`，构造时直接 `NullReferenceException`，
+  表现为启动就崩、XAML 只报 `Cannot create instance of type 'Capsyn.Controls.IslandShell'`。
+  修法：默认预设值单独写成 `const int DefaultPresetSeconds = 300`。
+  顺带把 `Diagnostics.LogCrash` 改成**连 InnerException 一起写**，否则这种崩法只有外层一句废话。
+
+### 11.6 设置 → 铃声（含自定义），以及到点提醒
+**设置视图**（点 ⚙ 进入，看板 360 高）里目前只有一个板块：**铃声**。
+
+| 行 | 内容 |
+| --- | --- |
+| 闹钟 | 5 个内置音效：经典双响 / 上升三连 / 电子脉冲 / 柔和钟声 / 蜂鸣警报（默认第 1 个） |
+| 倒计时 | 5 个内置音效：清脆提示 / 双叮 / 上升琶音 / 水滴 / 柔和和弦（默认第 1 个） |
+| 自定义 | 「闹钟：选择文件…」「倒计时：选择文件…」——各自挑一个本地音频文件 |
+
+* 两行**各选各的**（闹钟紫色系、倒计时橙色系高亮）；**点一下 = 选中 + 立刻试听**（单次播放）；
+* **自定义**：点按钮开系统文件选择器（`.wav .mp3 .m4a .aac .wma .flac .ogg`），选中的文件会**复制**进
+  `%LOCALAPPDATA%\Capsyn\ringtones\custom-{alarm|countdown}{扩展名}`（原文件之后删了也不影响），
+  再写进设置并试听；自定义生效时该类的 5 个内置音效都不再高亮；点任意内置音效 = 把这一类切回内置；
+* 选择立刻写进 `%LOCALAPPDATA%\Capsyn\settings.json`，重启沿用；文件损坏 / 越界 / 自定义文件不见了
+  都会安全退回（越界夹紧、失效的自定义清空、缺文件就是默认第一个）。
+
+**音效怎么来的**：内置音效由 `RingtoneLibrary` **代码合成** 44.1kHz/16-bit 单声道 WAV（正弦 / 方波 /
+钟声泛音 + 起音 6ms + 指数衰减包络），首次播放时写到 `%LOCALAPPDATA%\Capsyn\ringtones\{alarm|countdown}-N.wav`。
+所以仓库里没有任何音频二进制文件，也没有版权问题；自定义文件则是用户自己的音频。
+
+**播放**：`RingtoneService` 用 `Windows.Media.Playback.MediaPlayer`（支持 mp3 等格式、能循环、能停）；
+MediaPlayer 起不来时退回 winmm 的 `PlaySound`（只认 wav）：
+
+| 场景 | 行为 |
+| --- | --- |
+| 倒计时归零 | 循环播放倒计时铃声，最长 30 秒；胶囊 `00:00` 变红；**岛自动展开成提醒面板** |
+| 闹钟到点 | 循环播放闹钟铃声，最长 2 分钟；**岛自动展开成提醒面板** |
+| 设置页点音效 / 自定义 | 单次试听（不循环，最多 3 秒） |
+
+**到点提醒 = 岛的第二级面板**（不再单开屏幕中央的窗口）：岛从胶囊**自动展开**，切到「提醒视图」
+（180 高），内容按类型换：
+
+```
+┌──────────────────────────────────────────────┐
+│ [🔔/⏳]  闹钟 / 倒计时                           │
+│          08:00 / 00:00                        │
+│          到时间了 / 时间到                       │
+│  [停止]  [稍后 5 分钟]          ⚙  ⏻            │   ← 稍后 5 分钟只有闹钟有
+└──────────────────────────────────────────────┘
+```
+
+* 提醒期间**鼠标移开也不收起**（`_alertActive` 挡住悬停收起逻辑），保证响铃能被看见、能点掉；
+* 「停止」→ `DismissRinging()` → 静音 + 关提醒；「稍后 5 分钟」→ `SnoozeAlarm(5min)` 重新排期；
+* 关掉时：鼠标还在岛上 → 切回指标；已经移开 → 直接收起（下次展开自动复位成指标）；
+* 声音在 `App.OnRingingChanged` 里编排，提醒面板在 `IslandShell`（因为它管展开/收起），VM 两样都不碰。
+
+**已知取舍**：
+* 音量跟系统音量走，没有 per-app 音量；
+* 提醒面板会把岛自动展开（会短暂盖住屏幕顶部的其它窗口），但**不抢键盘焦点**；
+* 调试钩子：`CAPSYN_ALARM_TEST=<秒>` / `CAPSYN_COUNTDOWN_TEST=<秒>` 启动即各起一个 N 秒后到点的计时，
+  专门用来手动验证提醒面板 + 铃声。
 
 ### 12. 关闭程序（看板右下角 → 退出应用）
 整个「电源岛」已按需求删除（过程与结论见下面的「电源岛与电源操作」表），退出入口只剩看板右下角这一个图标按钮：
@@ -314,8 +462,9 @@ DashboardIslandControl.OnCloseClick
   以及出场顺序用的 `IslandAnimator.Nudge()`。
   现在只有一条悬停链：**胶囊/看板内 → 展开，移开 → 160ms 宽限后收起**。
 * 窗口区域现在只有两块圆角矩形的并集（胶囊 ∪ 看板）：
-  `IslandWindowStyler.UpdateIslandShape(panelScaleX, panelScaleY)` 是**两个参数**；
-  窗口高按公式 `40 + 6 + 350 × 1.12 = 438`（旧尺寸实测过 616 × 538，新的这个还没实测）。
+  `IslandWindowStyler.UpdateIslandShape(panelWidthDip, panelHeightDip, cornerProgress)` 是**三个参数**
+  （宽度和高度分开传，因为切视图时看板只长高、不改宽）；
+  窗口高按公式 `40 + 6 + 430 × 1.12 ≈ 528`（按最高的那个视图留回弹余量，实测 616 × 528）。
 * 这个按钮不写诊断日志，但真的退出。
 
 ### 13. 健壮性：单实例 / 异常兜底 / 显示器变化 / 深色主题
@@ -397,19 +546,57 @@ DashboardIslandControl.OnCloseClick
 > 调用前用 `AdjustTokenPrivileges` 启用 `SeShutdownPrivilege`；注意这个 API
 > **没把特权赋上也会返回 TRUE**，必须复查 `GetLastWin32Error()`（`0` 成功 / `1300` 没分配上）。
 
-### 里程碑 9：时间工具视图（只有 UI，功能未接）
+### 里程碑 9：时间工具视图（UI 重构 + 接上功能）
 | 验收项 | 结果 |
 | --- | --- |
-| 看板左下出现「时间工具」按钮（时钟矢量图标 + 文字） | ⏳ 待运行核对（本地构建 0 警告 0 错误） |
-| 点击后隐藏指标与入口按钮，显示三个工具按钮 + 左上角返回 | ⏳ 待运行核对（只切 4 个元素的 `Visibility`；日志 `dashboard view: time tools`） |
-| 三个按钮「正计时 / 倒计时 / 闹钟」并排一行、等宽（高 56），**各有各的色系**（蓝 / 橙 / 紫） | ⏳ 待运行核对 |
-| 点左上「返回」回到指标视图 | ⏳ 待运行核对（日志 `dashboard view: metrics`） |
-| 不点返回直接移开鼠标：下次展开是**指标视图**、且布局正常 | ⏳ 待运行核对（展开前复位 + `SnapToRest` 归零位移，日志 `dashboard view: metrics (reset)`） |
-| 过场动画：iOS 风格 push / pop（入场 340ms / 出场 200ms，60% 视差，cubic-bezier(0.32,0.72,0,1)） | ⏳ 待运行核对（Composition `Translation`，跑在合成线程） |
+| 看板左下出现「时间工具」按钮（时钟矢量图标 + 文字） | ✅ 实跑截图核对（`click: time tools`） |
+| 点击后看板从 350 **长高到 430**（弹簧），再点「返回」缩回 350 | ✅ 实跑核对，日志 `dashboard view: time tools (panel 430 dip)` / `… metrics (panel 350 dip)`，区域逐帧 `550×350 → 550×430` |
+| 分段控件「正计时 / 倒计时 / 闹钟」，指示条跟着模式滑动、颜色跟着换 | ✅ 实跑截图（蓝 / 橙 / 紫） |
+| 环形进度：正计时走 60s、倒计时走剩余比例、响铃画满 | ✅ 实跑截图（倒计时 1 分钟归零后整圈变红 + 读数「时间到」） |
+| 正计时读数 `mm:ss.f` 每 50ms 跳；「记一圈 / 上一圈」 | ✅ 实跑截图（`00:02.2`、按「记一圈」后上一圈有值） |
+| 倒计时 1/3/5/10 分钟预设 + 开始/暂停/继续/停止 + 复位 | ✅ 实跑截图（1 分钟 → 00:58 → 00:00 → 时间到 → 停止） |
+| 闹钟 ±1/±5 分钟 + 启用/取消，启用后显示「N 小时后」 | ✅ 实跑截图（`08:00`、`19.7 小时后`、按钮变「取消」） |
+| 主按钮 / 复位 / 预设的禁用态与指针态 | ✅ 按钮走 `PresetChip` / `PrimaryActionButton` 样式，禁用态用 token |
+| 右下角「设置」「关闭程序」两个视图里都常驻，且跟着看板底边上下滑 | ✅ 实跑截图（指标 334 / 工具 414 底边对齐） |
+| 过场动画：iOS 风格 push / pop（入场 300ms / 出场 150ms，60% 视差，cubic-bezier(0.32,0.72,0,1)） | ✅ 实跑核对（Composition `Translation`，跑在合成线程） |
 | 连点「时间工具 / 返回」不会收错视图 | ✅ 收尾用 `_viewSwitchToken` 序号保护 |
-| 三个工具按钮不接任何逻辑 | ✅ XAML 里没有 `Click`，只留了 `TODO(扩展)` |
-| 右下角「设置」「关闭程序」两个视图里都常驻 | ⏳ 待运行核对 |
-| 不影响面板尺寸 / 窗口区域 / 弹簧动画 | ✅ 只改 XAML 元素的可见性 + Composition 动画，`IslandShell` / `IslandWindowStyler` 一行没动 |
+| 计时中把鼠标移开：岛收起但计时不停，再展开读数是对的 | ✅ 计时器与面板可见性解耦，只在 `NeedsClock` 时 tick |
+| 崩溃 / 未处理异常 | ✅ 全流程跑完 `capsyn-crash.log` 为空 |
+
+> 测试方式：WinUI 3 的 ContentIsland 不接 `mouse_event` 注入的点击，所以验证脚本改用
+> **UI Automation**（按 `AutomationId` 找到按钮 → `InvokePattern.Invoke()`）驱动，
+> 截图用 `PrintWindow(PW_RENDERFULLCONTENT)` 只拍窗口本身。脚本在 `.tools/`（已 gitignore）。
+
+### 里程碑 9.5：收起后的顶部胶囊「监测区」
+| 验收项 | 结果 |
+| --- | --- |
+| 没有计时时胶囊显示时钟（宽 320） | ✅ 实跑 + 区域日志 `pill 320x40 + dot 0` |
+| 只开正计时 / 倒计时 → 收起后胶囊显示「图标 + mm:ss」、时钟消失（宽 172） | ✅ 实跑截图（`00:02` / `00:58`）+ `pill 172x40 + dot 0` |
+| 两个计时同时跑 → **两块独立的岛**（胶囊 172 + 圆 40 + 10 缝隙），读数还在走 | ✅ 实跑 + 区域日志 `pill 172x40 + dot 40`；截图里圆与胶囊之间露出桌面 |
+| 点小圆换位（圆 ↔ 胶囊内容互换） | ✅ 实跑截图（换位后圆变倒计时、胶囊变正计时） |
+| 复位其中一个 → 圆消失、胶囊收窄（172）；两个都复位 → 时钟回来（320） | ✅ 区域日志 `dot 40 → dot 0`、`pill 172 → pill 320` |
+| 倒计时在**收起状态**下归零 → 胶囊显示红色 `00:00`，且被提到主位 | ✅ 实跑截图（收起等 63 秒后截） |
+| 只启用闹钟 → 胶囊保持时钟（闹钟不占用） | ✅ 实跑截图 + `pill 320x40 + dot 0` |
+| 计时跨收起 / 展开不中断、读数连续 | ✅ 正计时在小圆里从 `00:02` 走到 `00:13` |
+| 胶囊 / 圆变宽变窄时窗口区域逐帧跟着变（不露边、不裁掉内容） | ✅ 区域日志 `320 → 172 → 172+圆40 → 172 → 320` 连续过渡 |
+| 启动 / 全流程无崩溃 | ✅ `capsyn-crash.log` 为空（中途修掉一个静态初始化顺序的 NRE） |
+
+### 里程碑 9.6：设置 → 铃声（含自定义）+ 到点提醒
+| 验收项 | 结果 |
+| --- | --- |
+| 点 ⚙ 打开设置视图（看板 360 高），返回回指标 | ✅ 实跑 + 日志 `dashboard view: settings (panel 360 dip)` |
+| 两行各 5 个内置音效，默认都选中第一个 | ✅ 实跑截图（闹钟紫、倒计时橙，第 1 个高亮） |
+| 点某个音效 = 选中 + 试听 + 存盘 | ✅ `settings.json` 变成 `{"AlarmRingtone":2,...}`，日志 `ringtone: play Alarm #2 "电子脉冲" (loop=False)` |
+| 自定义：选本地音频文件 → 复制进本地铃声目录 + 存盘 + 试听 | ✅ 实跑（预置 `AlarmCustomFile` 后触发闹钟：`ringtone: play Alarm #-1 "custom-alarm.wav" (loop=True)`）；选择器走 `FileOpenPicker + InitializeWithWindow` |
+| 切回内置音效会清掉自定义 | ✅ 实跑（点内置后 `settings.json` 里 `AlarmCustomFile: null`） |
+| 重启后沿用上次选择 | ✅ 文件持久化（`%LOCALAPPDATA%\Capsyn\settings.json`），失效/越界自动退回默认 |
+| 10 个内置音效都是合法 WAV | ✅ 落盘后 `alarm-0.wav` 97,066 B / `alarm-2.wav` 88,244 B，可正常播放 |
+| **倒计时归零**：岛自动展开成提醒面板 + 响铃 | ✅ 实跑（`CAPSYN_COUNTDOWN_TEST=6`）：`SetDashboardExpanded(True)` → `dashboard view: alert (panel 180 dip)` → `ringtone: play Countdown #1 "双叮" (loop=True)` |
+| **闹钟到点**：同样的提醒面板（紫色铃铛 + 08:00 + 稍后 5 分钟）+ 响铃 | ✅ 实跑（`CAPSYN_ALARM_TEST=8`）：`alert: show Alarm` + `ringtone: play Alarm #0 …` |
+| 提醒期间鼠标移开不收起 | ✅ `_alertActive` 挡住悬停收起；实跑时鼠标在屏幕外，岛仍展开 |
+| 「停止」：静音 + 关提醒 + 复位 | ✅ 实跑：`alert: stop (Countdown)` → `ringtone: stopped` → 面板收起 |
+| 「稍后 5 分钟」：收铃并重新排期 | ✅ 代码路径 `SnoozeAlarm(5min)`（日志 `alarm: snoozed for 5 min -> …`） |
+| 全流程无崩溃 | ✅ `capsyn-crash.log` 为空 |
 
 ### 里程碑 10：健壮性整改（单实例 / 异常兜底 / 显示器变化 / 深色主题）
 | 验收项 | 结果 |
@@ -455,12 +642,17 @@ DashboardIslandControl.OnCloseClick
 ## 六、环境说明
 
 * 依赖：.NET 9 桌面运行时、Windows App Runtime **1.8**（`8000.994.2142.0`，已安装）。
-  本机开发（`dotnet build` / VS F5）用框架依赖就行；**要发到没装这些运行时的机器**时用自包含发布
-  （命令见下面的「打安装包 / 自包含发布」）。
-* `nuget.config`：保留 `nuget.org` 官方源（方便以后在 VS 里装新包），同时把本机缓存
-  `C:\Users\sqw-j\.nuget\packages` 配成只读 `fallbackPackageFolders`，所以没有外网也能还原
-  （离线时只会出现 `NU1900` 漏洞库警告，可忽略）。新解出来的包放在项目内的 `.tools\nuget-packages`
-  （已 gitignore），不会写到项目目录之外。
+  * 本机实际只装了 .NET **8 / 10 / 11** 运行时，没有 9。`Capsyn.csproj` 里的
+    `<RollForward>Major</RollForward>` 让框架依赖的 net9.0 程序落到 10.0.15 上跑，无需装 .NET 9；
+    装了 .NET 9 之后这一行留着也无害（会优先用 9.x）。
+  * 本机开发（`dotnet build` / VS F5）用框架依赖就行；**要发到没装这些运行时的机器**时用自包含发布
+    （命令见下面的「打安装包 / 自包含发布」）。
+* `nuget.config`：只保留 `nuget.org` 官方源（方便以后在 VS 里装新包），包统一解到项目内的
+  `.tools\nuget-packages`（已 gitignore），不会写到项目目录之外。
+  **不要再把 `C:\Users\sqw-j\.nuget\packages` 配成 `fallbackPackageFolders`**：该目录一旦不存在，
+  NuGet 还原会直接抛 `NuGetPackaging.Core.PackagingException: Unable to find fallback package folder`，
+  VS 里表现为 `MSB4018` + `ResolvePackageAssets 任务意外失败`（错误码下方还有 `NU1301`）。
+  第一次还原需要联网下载 Windows App SDK 等包。
 * **Visual Studio 报一片 `NU1100`（`Microsoft.NETCore.App.Runtime.win-x86 / win-x64 / win-arm64`、
   `Microsoft.WindowsDesktop.App.Runtime.*`、`Microsoft.AspNetCore.App.Runtime.*`）的原因与修复**：
   * 原因：`RuntimeIdentifiers` 被 WinUI/WinAppSDK 注入成 `win-x86;win-x64;win-arm64`，而 .NET SDK
@@ -582,6 +774,66 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     ⑤ 动画热路径的逐帧日志先判 `Diagnostics.IsEnabled`，不再白造字符串；
     ⑥ 顺手：`IslandOptions` 注释里不存在的 tag 名改对、删掉无用的 `x:Name`、`.gitignore` 收掉崩溃日志。
     实测：干净构建 Debug + Release 均 0 警告 0 错误。
+  * `v0.3.5-TimeToolsUI`（已随 `v4.0.0-beta` 发布）—— 时间工具视图**整页重构 + 接上真功能**：
+    ① 看板变成**可变高度**：指标 350 / 时间工具 430，`IslandShell` 加第二根弹簧 `_heightSpring`，
+    `UpdateIslandShape` 从「两个缩放比例」改成「宽 + 高 + 圆角进度」；窗口画布按 430 一次留够（616 × 528），
+    切视图只改窗口区域，窗口尺寸与胶囊位置一秒都不用重算；
+    ② 工具页重新排版：左上「返回」+ 标题 → **分段控件**（正计时 / 倒计时 / 闹钟，带滑动指示条）→
+    **96px 环形进度 + 52px 等宽读数** → 模式自己的操作行（记一圈 / 预设 / ±分钟）→ 主按钮 + 复位；
+    右下角两个图标按钮改成**两个视图共用的页脚层**，跟着看板底边上下滑（只改 `Translation`，不重排）；
+    ③ 三个模式都**真的计时**（新 `TimeToolsViewModel`）：正计时 50ms tick + 记一圈、倒计时走 deadline
+    （UI 线程卡住也不会走慢）+ 1/3/5/10 分钟预设、闹钟 HH:mm 微调 + 下一次响铃；到点进「时间到 / 响铃中」
+    （环画满、读数与小字转红、主按钮变「停止」）；计时跟面板可见性解耦，岛收起也照走；
+    ④ 新增样式 `SegmentFrame` / `SegmentButton` / `PresetChip` / `PrimaryActionButton` /
+    `SecondaryActionButton` / `HeroReadout` / `HeroCaption` / `ToolsTitle`，全部走 token。
+    期间修掉一个真 bug：`Resources["CardBorder"]` 在 `Loaded` 里抛 `Cannot find a resource`
+    （`CardBorder` 在 App.Resources，控件自己的字典里没有），改成两级 `TryGetValue`，卡片阴影才真正挂上。
+  * `v0.3.6-TimeMonitorPill`（已随 `v4.0.0-beta` 发布）—— 收起后的**顶部变成计时监测区**：
+    ① 有正计时 / 倒计时占用时，时钟**消失**，胶囊换成「模式图标 + mm:ss」（宽 172）；
+    ② 两个计时同时跑：**两块独立的岛** —— 新开的在胶囊里，原来那个变成胶囊左边一颗
+    40 × 40 的圆形小岛（模式图标 + 进度环），中间留 10px 真实缝隙；整组居中，胶囊让出半个圆；
+    点小圆换位；**闹钟不算占用**（时钟照旧、不参与排序）；
+    ③ 计时状态从 `DashboardIslandControl` 私有实例改成**单例** `TimeToolsViewModel.Shared`，
+    工具页、胶囊、小圆绑同一个实例；tick 移到 `IslandShell`（比这些控件活得久）；
+    ④ 轮廓参数打包成 `IslandShapeSnapshot`（胶囊左/宽 + 圆左/径/出现进度 + 看板），
+    `IslandWindowStyler` 分别裁圆角矩形再并起来；胶囊宽度 / 小圆出现都是弹簧插值，逐帧变；
+    ⑤ 修了单例的静态初始化顺序坑（见 11.5 最后一条），并把 `Diagnostics.LogCrash` 改成连 InnerException 一起写。
+  * `v0.3.7-RingtoneSettings`（已随 `v4.0.0-beta` 发布）—— **设置页 + 铃声 + 到点提醒**：
+    ① ⚙ 不再是占位按钮：打开**设置视图**（看板 360 高，第四块视图，复用 push/pop 过场与高度弹簧）；
+    ② **铃声板块**：闹钟 / 倒计时**各 5 个内置音效**，分开选择、默认第一个，点一下即试听；
+    另有「自定义」一行，各自挑一个本地音频文件（`.wav/.mp3/.m4a/…`，复制进本地铃声目录，
+    原文件删了也不影响）；选择存 `%LOCALAPPDATA%\Capsyn\settings.json`（容错读取、越界夹紧、失效自定义清空）；
+    ③ 内置音效全部**代码合成**（44.1kHz/16-bit WAV，正弦/方波/钟声泛音 + 包络），
+    仓库里没有音频文件；首次播放落到 `%LOCALAPPDATA%\Capsyn\ringtones\`；
+    ④ `RingtoneService` 改用 `MediaPlayer`（能放 mp3、能循环、能停），`PlaySound` 只留兜底；
+    倒计时最长 30 秒、闹钟最长 2 分钟，点「停止」立即静音；
+    ⑤ **到点提醒改成"岛的第二级面板"**：倒计时归零 / 闹钟到点会**自动展开岛**并切到「提醒视图」
+    （180 高，铃铛/沙漏 + 时间 + 「停止」，闹钟多「稍后 5 分钟」）；提醒期间鼠标移开也不收起；
+    ⑥ 声音在 `App.OnRingingChanged` 编排，提醒面板在 `IslandShell`（它管展开/收起），VM 两样都不碰；
+    ⑦ 新增调试钩子 `CAPSYN_ALARM_TEST=<秒>` / `CAPSYN_COUNTDOWN_TEST=<秒>`，手动验提醒面板 + 铃声用。
+  * `v0.3.8-ModeTransition`（已随 `v4.0.0-beta` 发布）—— 时间工具**三个模式之间的切换**：
+    ① 先做过一版「内容淡出 110ms + 位移 → 透明状态下换内容 → 淡入 240ms」的过场
+    （指示条照旧用 Fast 滑过去，`_modeSwitchToken` 收尾，连点不跳）；
+    ② 实测切回正计时偶发出现"内容错位 / 被裁掉 / 和按钮重叠"的观感——加了
+    `SnapToolsContentToRest()`（动画走完显式落位）和 `ApplyModeRowVisibility()`（模式行按 VM 硬设）两个双保险，
+    仍无法在这种合成器时序下稳定复现；
+    ③ **按需求把内容过场整段删掉**：现在点段位 = 直接 `SelectMode()` + 指示条滑动，
+    内容零动画、零残留状态；上面两个双保险里的「模式行硬设」保留（它只是把可见性摆对，不产生动画）；
+    ④ 视图之间的 push / pop 过场（指标 ↔ 工具 ↔ 设置 ↔ 提醒）**不受影响**，仍然保留。
+  * `v4.0.0-beta`（**当前发布版本**）—— 把 `v0.3.5` ~ `v0.3.8` 四批改动合并发布（时间工具大版本）：
+    ① **时间工具真能用**：正计时（`mm:ss.f` + 记一圈/上一圈）、倒计时（1/3/5/10 分钟预设、deadline 计时）、
+    闹钟（HH:mm ±1/±5 分钟、下一次响铃）；分段控件 + 环形进度读数 + 模式专属操作行；
+    ② **看板高度按视图变**：指标 350 / 时间工具 430 / 设置 360 / 到点提醒 180，
+    窗口画布一次留够（616 × 528），切视图只改窗口区域、用弹簧长高/缩矮；
+    ③ **收起后的顶部变成监测区**：时钟 / 「图标 + mm:ss」/ **两块独立的岛**（胶囊 + 旁边一颗 40×40 圆岛，
+    点圆换位）；闹钟不算占用；计时跨收起/展开不中断；
+    ④ **设置页 + 铃声**：闹钟 / 倒计时各 5 个**代码合成**的内置音效（默认第一个），可各选一个**自定义音频文件**
+    （wav/mp3/m4a/…），存 `%LOCALAPPDATA%\Capsyn\settings.json`；播放用 `MediaPlayer`；
+    ⑤ **到点提醒**：倒计时 / 闹钟到点 → 岛自动展开成提醒面板（铃铛/沙漏 + 时间 + 停止，闹钟多「稍后 5 分钟」）
+    + 循环响铃；提醒期间鼠标移开不收起；
+    ⑥ 期间修掉的问题：NuGet 兜底目录不存在导致 `MSB4018`、本机缺 .NET 9 运行时（`RollForward=Major`）、
+    `Resources["CardBorder"]` 抛异常、单例静态初始化顺序 NRE、崩溃日志只写外层异常；
+    ⑦ 调试钩子：`CAPSYN_DIAG` / `CAPSYN_ALARM_TEST` / `CAPSYN_COUNTDOWN_TEST` / `CAPSYN_BACKDROP`。
 
 
 ---
@@ -631,7 +883,9 @@ Capsyn/
 │   ├── IslandShell.xaml  (34 行)
 │   ├── IslandShell.xaml.cs  (251 行)
 │   ├── TimeIslandControl.xaml  (26 行)
-│   └── TimeIslandControl.xaml.cs  (38 行)
+│   ├── TimeIslandControl.xaml.cs  (38 行)
+│   ├── TimerDotControl.xaml  (60 行)      ← 第二个计时的独立小圆岛
+│   └── TimerDotControl.xaml.cs  (110 行)
 ├── Helpers/
 │   └── ColorHelper.cs  (27 行)
 ├── Interop/
@@ -645,6 +899,8 @@ Capsyn/
 │   ├── IslandAnimator.cs  (39 行)
 │   ├── IslandBackdrop.cs  (77 行)
 │   ├── IslandWindowStyler.cs  (330 行)
+│   ├── RingtoneService.cs  (210 行)      ← MediaPlayer 播放（内置 + 自定义）
+│   ├── RingtoneService.cs  (150 行)      ← winmm PlaySound 播放 / 循环 / 停
 │   ├── SingleInstance.cs  (33 行)
 │   ├── SpringScalar.cs  (62 行)
 │   ├── SystemMetricsProvider.cs  (128 行)
@@ -657,13 +913,15 @@ Capsyn/
 ├── ViewModels/
 │   ├── DashboardViewModel.cs  (101 行)
 │   ├── ObservableObject.cs  (21 行)
-│   └── TimeIslandViewModel.cs  (41 行)
+│   ├── TimeIslandViewModel.cs  (41 行)
+│   └── TimeToolsViewModel.cs  (520 行，正计时 / 倒计时 / 闹钟的状态机)
 ├── .gitignore
 ├── app.manifest  (28 行)
 ├── App.xaml  (27 行)
-├── App.xaml.cs  (53 行)
+├── App.xaml.cs  (110 行，含铃声编排)
 ├── Capsyn.csproj  (77 行)
 ├── Capsyn.sln  (24 行)
+├── Configuration/AppSettings.cs  (100 行，设置持久化)
 ├── MainWindow.xaml  (13 行)
 ├── MainWindow.xaml.cs  (61 行)
 ├── nuget.config  (24 行)

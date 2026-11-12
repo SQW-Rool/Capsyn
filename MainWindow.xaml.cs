@@ -20,6 +20,10 @@ public sealed partial class MainWindow : Window
         Title = "Capsyn";
 
         var hwnd = WindowNative.GetWindowHandle(this);
+
+        // 给 FileOpenPicker 之类需要窗口句柄的 WinRT API 用。
+        App.MainWindowHandle = hwnd;
+
         _styler = new IslandWindowStyler(this, hwnd, IslandOptions.Default);
 
         // 1) 无边框 / 不进任务栏和 Alt+Tab / 置顶 / 不画系统边框。
@@ -48,8 +52,16 @@ public sealed partial class MainWindow : Window
     {
         _styler.ApplyIslandLayout();                 // 整块看板画布，主屏顶部居中（只算这一次）
 
-        var (scaleX, scaleY) = Island.CollapsedPanelScale;
-        _styler.UpdateIslandShape(scaleX, scaleY);      // 收起态：窗口只露出时间岛胶囊
+        var (collapsedWidth, collapsedHeight) = Island.CollapsedPanelSize;
+        _styler.UpdateIslandShape(new IslandShapeSnapshot(
+            IslandOptions.Default.PillLeftFor(collapsedWidth),
+            collapsedWidth,
+            IslandOptions.Default.PillLeftFor(collapsedWidth) - IslandOptions.Default.DotGap - IslandOptions.Default.DotSize,
+            IslandOptions.Default.DotSize,
+            0,
+            collapsedWidth,
+            collapsedHeight,
+            0));                                  // 收起态：窗口只露出时间岛胶囊
 
         Activate();                                  // 显示窗口（此时还未禁止激活，保证一定可见）
         _styler.ApplyPostShowPolicy();
@@ -58,8 +70,8 @@ public sealed partial class MainWindow : Window
         WindowAnimations.PlayEnter(Island);               // 不抢焦点 + 压到最顶层 + 锁死位置
     }
 
-    private void OnIslandShapeProgress(double panelScaleX, double panelScaleY)
-        => _styler.UpdateIslandShape(panelScaleX, panelScaleY);
+    private void OnIslandShapeProgress(IslandShapeSnapshot shape)
+        => _styler.UpdateIslandShape(shape);
 
     /// <summary>看板岛右下角的「关闭程序」：关掉窗口并退出应用。</summary>
     private void OnExitRequested()

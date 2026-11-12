@@ -12,8 +12,8 @@
     建议同时打 tag（例如 v0.3.1-ProjectChange-U2），回滚时直接 checkout 对应 tag。
 
 .EXAMPLE
-    cd G:\Capsyn
-    powershell -ExecutionPolicy Bypass -File .\tools\backup-to-github.ps1 -Message "加入通知队列" -Tag v0.3.1-Notifications
+    cd E:\Capsyn
+    powershell -ExecutionPolicy Bypass -File .\tools\backup-to-github.ps1 -Message "加入通知队列" -Tag v4.0.1-Notifications
 
 .EXAMPLE
     # 只提交推送，不打 tag
@@ -30,7 +30,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-Set-Location 'G:\Capsyn'
+
+# 仓库根目录 = 本脚本所在目录的上一级（不再硬编码盘符，换机器也能用）。
+Set-Location (Split-Path $PSScriptRoot -Parent)
 
 Write-Host '== git status ==' -ForegroundColor Cyan
 git status --short
