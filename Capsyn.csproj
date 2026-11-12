@@ -73,10 +73,16 @@
     拷出来的、不在清单里 —— 所以 publish 出来的目录缺它们，双击起不来（dotnet build 却完全正常，
     很难发现）。这里只**补拷**，不改 build 行为。
     发布完请确认 publish\ 里有 App.xbf、MainWindow.xbf、Controls\*.xbf 和 Capsyn.pri。
+
+    注意：glob 必须**排除 TargetDir 下已存在的 publish 目录**。默认发布目录就是
+    $(TargetDir)publish，第二次 publish 时那里面已经有上一次的 .xbf，会被 `**` 再收一遍，
+    结果在发布目录里长出 publish\publish\Controls\... 这种嵌套副本（打包体积翻倍、看着莫名其妙）。
   -->
   <Target Name="CopyXamlArtifactsToPublish" AfterTargets="Publish">
     <ItemGroup>
-      <_XamlPublishArtifact Include="$(TargetDir)**\*.xbf" />
+      <_XamlPublishArtifact
+        Include="$(TargetDir)**\*.xbf"
+        Exclude="$(TargetDir)publish\**\*.xbf;$(TargetDir)**\publish\**\*.xbf" />
       <_XamlPublishArtifact
         Include="$(TargetDir)$(AssemblyName).pri"
         Condition="Exists('$(TargetDir)$(AssemblyName).pri')" />

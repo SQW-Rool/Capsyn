@@ -15,3 +15,6 @@ capsyn-crash.log
 .idea/
 *.user
 *.suo
+
+# 绿色版 / 安装包产物（tools\build-portable.ps1 的输出）
+dist/
