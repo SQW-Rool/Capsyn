@@ -137,6 +137,14 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern bool GetCursorPos(out POINT lpPoint);
 
+    /// <summary>
+    /// 左键是否按着（返回值 &amp; 0x8000）。拖文件时左键一定按下，
+    /// 用它区分"正在拖拽"和"普通悬停"：拖拽期间不响应悬停，岛才会直接长成解压岛，
+    /// 而不是先展开指标看板、再被换成解压岛。
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern short GetAsyncKeyState(int vKey);
+
     // ---------------- comctl32（窗口子类化，用于锁死位置） ----------------
 
     [DllImport("comctl32.dll", SetLastError = true)]

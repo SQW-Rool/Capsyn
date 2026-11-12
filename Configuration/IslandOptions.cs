@@ -66,10 +66,14 @@ public sealed class IslandOptions
     /// <summary>看板高度（DIP）：到点提醒视图（倒计时 / 闹钟响了）。</summary>
     public double ExpandedAlertHeight { get; init; } = 180;
 
+    /// <summary>看板高度（DIP）：拖拽解压视图（虚线落点 + 进度 + 结果）。</summary>
+    public double ExpandedDropHeight { get; init; } = 230;
+
+
     /// <summary>所有视图里最大的看板高度：窗口画布和回弹余量都按它算。</summary>
     public double MaxExpandedHeight => Math.Max(
         Math.Max(ExpandedHeight, ExpandedToolsHeight),
-        Math.Max(ExpandedSettingsHeight, ExpandedAlertHeight));
+        Math.Max(ExpandedSettingsHeight, Math.Max(ExpandedAlertHeight, ExpandedDropHeight)));
 
     /// <summary>看板圆角半径（DIP）。</summary>
     public double ExpandedCornerRadius { get; init; } = 28;

@@ -10,8 +10,10 @@ using Capsyn.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Graphics;
+using Windows.Storage;
 
 namespace Capsyn.Controls;
 
@@ -73,6 +75,18 @@ public sealed partial class IslandShell : UserControl
     /// <summary>到点提醒正在显示：这期间鼠标移开也不收起（响铃总得让人看见 / 点掉）。</summary>
     private bool _alertActive;
 
+    /// <summary>正在往岛上拖东西（虚线落点已显示）。</summary>
+    private bool _dragActive;
+
+    /// <summary>拖拽离开后有 350ms 宽限：从落点区挪到窗口别处时不至于闪一下。</summary>
+    private readonly DispatcherTimer _dragLeaveTimer;
+
+    /// <summary>落点区 / 解压中 / 结果显示期间，看板请求「保持展开」。</summary>
+    private bool _keepExpanded;
+
+    /// <summary>调试钩子 <c>CAPSYN_DROP_TEST</c> 用的一次性计时器。</summary>
+    private DispatcherTimer? _dropTestTimer;
+
     private double _lastTickSeconds;
 
     /// <summary>最近一帧算出的胶囊 / 小圆 / 看板尺寸与位置（DIP），悬停判定要用它们。</summary>
@@ -96,6 +110,10 @@ public sealed partial class IslandShell : UserControl
 
         _shapeSyncTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(ShapeSyncIntervalMs) };
         _shapeSyncTimer.Tick += OnShapeSyncTick;
+
+        // 拖拽离开的宽限计时器（从落点区挪到窗口别处时别闪）。
+        _dragLeaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
+        _dragLeaveTimer.Tick += OnDragLeaveTick;
 
         // 时间工具的 tick 放在外壳里：它比看板 / 胶囊都活得久，收起后计时也照走。
         _timeToolsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
@@ -168,6 +186,7 @@ public sealed partial class IslandShell : UserControl
 
         Dashboard.ExitRequested += OnExitRequested;
         Dashboard.PreferredPanelHeightChanged += OnPreferredPanelHeightChanged;
+        Dashboard.KeepExpandedChanged += OnDashboardKeepExpandedChanged;
 
         _panelSpring.Reset(0);
         _heightSpring.Reset(_options.ExpandedHeight);
@@ -197,13 +216,93 @@ public sealed partial class IslandShell : UserControl
         ShapeProgress?.Invoke(new IslandShapeSnapshot(
             _pillLeftDip, _options.Width, _dotLeftDip, _options.DotSize, 0, _options.Width, 0, 0));
         _hoverTimer.Start();
+
+
+        RunDropDebugHooks();
+    }
+
+    /// <summary>
+    /// 调试钩子（只在设了环境变量时执行）：
+    ///   * <c>CAPSYN_DROP_TEST=&lt;zip 路径&gt;</c>：跳过拖拽和选目录，直接走一遍「落点区 → 进度 → 结果」；
+    ///   * <c>CAPSYN_PICK_TEST=1</c>：只创建文件夹选择器并应用默认目录（不 Show），验证 COM 互操作。
+    /// 真实拖拽没法用脚本模拟（OLE 拖放需要外部进程发起），所以用它做自动验证。
+    /// </summary>
+    private void RunDropDebugHooks()
+    {
+        var dropTestPath = Environment.GetEnvironmentVariable("CAPSYN_DROP_TEST");
+
+        if (!string.IsNullOrWhiteSpace(dropTestPath) && System.IO.File.Exists(dropTestPath))
+        {
+            Diagnostics.Log($"drop test: {dropTestPath}");
+
+            // 等视觉树"活"过来再展开：在 Loaded 里立刻起合成动画，动画可能不被提交，
+            // 看板会停在 opacity 0（面板看不见）。延迟一拍，行为就接近真实拖拽了。
+            _dropTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(700) };
+            _dropTestTimer.Tick += (_, _) =>
+            {
+                _dropTestTimer?.Stop();
+                SetDashboardExpanded(true, resetView: false);
+                Dashboard.RunDropTest(dropTestPath);
+            };
+            _dropTestTimer.Start();
+        }
+
+        if (Environment.GetEnvironmentVariable("CAPSYN_PICK_TEST") == "1")
+        {
+            FolderPicker.SmokeTest(@"C:\Windows");
+        }
+
+        // CAPSYN_DROP_ORDER_TEST=1：模拟"拖进来"的**顺序**（先切落点视图 + 定高，再展开岛），
+        // 用来确认展开过程不会先按指标视图（350）长出来、也不会先闪一下指标卡片。
+        // CAPSYN_DROP_ORDER_TEST=cancel：再模拟"拖出去"（取消），确认岛直接收起、不闪看板。
+        var orderTest = Environment.GetEnvironmentVariable("CAPSYN_DROP_ORDER_TEST");
+
+        if (orderTest is "1" or "cancel")
+        {
+            var orderTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
+            _dropTestTimer = orderTimer;
+            orderTimer.Tick += (_, _) =>
+            {
+                orderTimer.Stop();
+                Diagnostics.Log("order test: 模拟拖入 → ShowDropZone(false) 然后 SetDashboardExpanded(true)");
+                Dashboard.ShowDropZone(animateHeight: false);
+                SetDashboardExpanded(true, resetView: false);
+
+                if (orderTest != "cancel")
+                {
+                    return;
+                }
+
+                var cancelTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.2) };
+                orderTimer = cancelTimer;
+                _dropTestTimer = cancelTimer;   // 必须被字段持有，否则会被 GC（踩过两次）
+                cancelTimer.Tick += (_, _) =>
+                {
+                    cancelTimer.Stop();
+
+                    // 模拟**真实的拖出路径**：和 OnDragLeaveTick 一样，只清状态 + 通知收起，
+                    // 收起交给 KeepExpandedChanged → 收起计时器（不直接调 SetDashboardExpanded）。
+                    Diagnostics.Log("order test: 模拟拖出（光标在岛外）→ 走真实 CancelDrop 路径");
+                    _dragActive = false;
+                    Dashboard.CancelDrop();
+                };
+                cancelTimer.Start();
+            };
+            orderTimer.Start();
+        }
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         Dashboard.ExitRequested -= OnExitRequested;
         Dashboard.PreferredPanelHeightChanged -= OnPreferredPanelHeightChanged;
+        Dashboard.KeepExpandedChanged -= OnDashboardKeepExpandedChanged;
         Clock.PreferredWidthChanged -= OnClockPreferredWidthChanged;
+        _dragLeaveTimer.Stop();
+
+
+        _dropTestTimer?.Stop();
+        _dropTestTimer = null;
         _timeTools.RingingChanged -= OnTimeToolsRingingChanged;
         _hoverTimer.Stop();
         _collapseTimer.Stop();
@@ -255,6 +354,136 @@ public sealed partial class IslandShell : UserControl
         }
 
         return NativeMethods.GetCursorPos(out var cursor) && IsCursorInside(cursor, BaseIslandRect());
+    }
+
+    // ---------------- 拖拽解压（把文件拖到岛上才弹落点区） ----------------
+    //
+    // 不做全局探测（鼠标钩子那套已经撤掉）：只有文件真的被拖到岛窗口上、
+    // OLE 的 DragOver 打到我们时，才展开岛并显示虚线落点区。
+    // 好处是绝不会误弹 —— 拖窗口、拖别的文件、在别处拖来拖去都没有任何反应。
+
+    /// <summary>文件被拖到岛上：展开岛并切到「虚线落点」视图。</summary>
+    private void OnShellDragOver(object sender, DragEventArgs e)
+    {
+        if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+            return;
+        }
+
+        e.AcceptedOperation = DataPackageOperation.Copy;
+        e.Handled = true;
+
+        if (e.DragUIOverride is { } dragUi)
+        {
+            dragUi.Caption = "解压到…";
+            dragUi.IsCaptionVisible = true;
+        }
+
+        _dragLeaveTimer.Stop();
+
+        // 到点提醒正在显示时，别让拖拽把提醒面板顶掉。
+        if (_alertActive || _dragActive)
+        {
+            return;
+        }
+
+        _dragActive = true;
+        _collapseTimer.Stop();
+
+        // 顺序很重要：先把视图切成落点区、并把看板高度定成 230（都是瞬切），
+        // 再展开岛 —— 否则会先按指标视图的高度（350）长出来、再缩回落点区，
+        // 而且第一眼看到的是指标卡片而不是解压岛。
+        Dashboard.ShowDropZone();
+        SetDashboardExpanded(true, resetView: false);
+
+        Diagnostics.Log("drag: files entered island");
+    }
+
+    private void OnShellDragLeave(object sender, DragEventArgs e)
+    {
+        if (_dragActive)
+        {
+            _dragLeaveTimer.Start();
+        }
+    }
+
+    private void OnDragLeaveTick(object? sender, object e)
+    {
+        _dragLeaveTimer.Stop();
+
+        if (!_dragActive)
+        {
+            return;
+        }
+
+        _dragActive = false;
+        Dashboard.CancelDrop();
+
+        // 光标还在岛里（比如拖到边上晃了一下又回来）：复位成指标视图，
+        // 别让"松开以解压"的旧状态留在展开的看板上。
+        // 光标已经在岛外的情况什么都不做 —— 让岛直接收起，不要先闪一下看板。
+        if (IsCursorInsideIsland())
+        {
+            Dashboard.ResetToMetricsView();
+        }
+
+        Diagnostics.Log("drag: left island");
+    }
+
+    private void OnShellDrop(object sender, DragEventArgs e)
+    {
+        _dragLeaveTimer.Stop();
+        _dragActive = false;
+
+        if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            Dashboard.CancelDrop();
+            return;
+        }
+
+        e.Handled = true;
+        _ = HandleDropAsync(e);
+    }
+
+    /// <summary>Drop 事件里拿文件路径（<c>DataView</c> 只在事件回调期间有效，所以立刻取）。</summary>
+    private async Task HandleDropAsync(DragEventArgs e)
+    {
+        try
+        {
+            var items = await e.DataView.GetStorageItemsAsync();
+            var paths = items
+                .OfType<StorageFile>()
+                .Select(file => file.Path)
+                .Where(path => !string.IsNullOrEmpty(path))
+                .ToList();
+
+            Diagnostics.Log($"drag: dropped {paths.Count} item(s)");
+
+            await Dashboard.HandleDropAsync(paths);
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Log($"drag: drop handling failed: {ex.Message}");
+            Dashboard.CancelDrop();
+        }
+    }
+    /// <summary>落点区 / 解压中 / 结果显示期间，看板请求「先别收起」。</summary>
+    private void OnDashboardKeepExpandedChanged(bool keep)
+    {
+        _keepExpanded = keep;
+
+        if (keep)
+        {
+            _collapseTimer.Stop();
+            return;
+        }
+
+        // 结束之后按正常逻辑走：光标不在岛上就收起。
+        if (!IsCursorInsideIsland())
+        {
+            _collapseTimer.Start();
+        }
     }
 
     // ---------------- 时间工具的 tick ----------------
@@ -319,9 +548,26 @@ public sealed partial class IslandShell : UserControl
 
     // ---------------- 悬停判定 ----------------
 
+    /// <summary>左键是否按着（0x8000 = 当前按下）。拖拽期间为 true。</summary>
+    private static bool IsLeftButtonDown()
+        => (NativeMethods.GetAsyncKeyState(0x01) & 0x8000) != 0;
+
     private void OnHoverTick(object? sender, object e)
     {
         if (!_ready || WindowRectProvider is null || XamlRoot is null)
+        {
+            return;
+        }
+
+        // 左键按着 = 用户正在拖东西（拖文件 / 拖窗口）。
+        // 这时**不响应悬停**：否则拖着一个 zip 划过胶囊的瞬间，这里会先把指标看板（350 高）展开，
+        // 紧接着 OLE 拖放事件到了又切到解压岛（230 高）—— 看起来就是"先显示看板，再显示解压岛"。
+        // 交给拖放那套逻辑（DragOver / Drop）去展开，岛就能一次性长成解压岛。
+        //
+        // 注意：这里**不能**顺手 `_collapseTimer.Stop()`。拖拽中每 50ms 进来一次，
+        // 一停就意味着"移出岛之后"永远收不起来（落点区会一直挂着）。收起该不该发生由
+        // OnCollapseTick 里的 _dragActive / _keepExpanded 判断，交给它就好。
+        if (IsLeftButtonDown())
         {
             return;
         }
@@ -340,7 +586,7 @@ public sealed partial class IslandShell : UserControl
         }
 
         // 离开了：交给宽限计时器（宽限期内移回来就不收）；到点提醒显示期间不收。
-        if (_expanded && !_alertActive && !_collapseTimer.IsEnabled)
+        if (_expanded && !_alertActive && !_dragActive && !_keepExpanded && !_collapseTimer.IsEnabled)
         {
             Diagnostics.Log("hover: outside island -> collapse scheduled");
             _collapseTimer.Start();
@@ -351,9 +597,9 @@ public sealed partial class IslandShell : UserControl
     {
         _collapseTimer.Stop();
 
-        if (_alertActive)
+        if (_alertActive || _dragActive || _keepExpanded)
         {
-            return;   // 提醒还没关，别把岛收掉
+            return;   // 提醒没关 / 正在拖拽 / 解压结果还没处理完，都别把岛收掉
         }
 
         if (WindowRectProvider is not null
@@ -502,6 +748,20 @@ public sealed partial class IslandShell : UserControl
         _contentVisual.Scale = new Vector3((float)scale, (float)scale, 1f);
     }
 
+    /// <summary>把形状发给窗口区域（区域 = 胶囊 ∪ 小圆 ∪ 看板）。</summary>
+    private void PublishShape(
+        double pillLeft,
+        double pillWidth,
+        double dotLeft,
+        double dotProgress,
+        double panelWidth,
+        double panelHeight,
+        double progress)
+    {
+        ShapeProgress?.Invoke(new IslandShapeSnapshot(
+            pillLeft, pillWidth, dotLeft, _options.DotSize, dotProgress, panelWidth, panelHeight, progress));
+    }
+
     private void OnShapeSyncTick(object? sender, object e)
     {
         var elapsedSeconds = _shapeClock.Elapsed.TotalSeconds;
@@ -553,8 +813,7 @@ public sealed partial class IslandShell : UserControl
         // 右下角那排图标按钮始终贴着看板底边：看板长高 / 缩矮时跟着走（只改 Translation，不重排）。
         Dashboard.UpdatePanelHeight(panelHeight);
 
-        ShapeProgress?.Invoke(new IslandShapeSnapshot(
-            pillLeft, pillWidth, dotLeft, _options.DotSize, dotProgress, panelWidth, panelHeight, progress));
+        PublishShape(pillLeft, pillWidth, dotLeft, dotProgress, panelWidth, panelHeight, progress);
 
         var elapsedMs = _shapeClock.ElapsedMilliseconds;
         if ((_panelSpring.IsSettled && _heightSpring.IsSettled && _pillWidthSpring.IsSettled && _dotSpring.IsSettled && elapsedMs > 200)
@@ -584,9 +843,7 @@ public sealed partial class IslandShell : UserControl
             TimerDot.Translation = new Vector3((float)finalDotLeft, 0f, 0f);
             Dashboard.UpdatePanelHeight(finalHeight);
 
-            ShapeProgress?.Invoke(new IslandShapeSnapshot(
-                finalPillLeft, finalPillWidth, finalDotLeft, _options.DotSize,
-                finalDotProgress, finalWidth, finalHeight, finalProgress));
+            PublishShape(finalPillLeft, finalPillWidth, finalDotLeft, finalDotProgress, finalWidth, finalHeight, finalProgress);
             StopShapeSync();
         }
     }

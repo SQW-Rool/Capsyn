@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Numerics;
 using Capsyn.Configuration;
@@ -65,6 +66,13 @@ public sealed partial class DashboardIslandControl : UserControl
     private double _toolsHeight;
     private double _settingsHeight;
     private double _alertHeight;
+    private double _dropHeight;
+
+    /// <summary>上一次解压到的目录（「打开文件夹」用）。</summary>
+    private string? _lastExtractFolder;
+
+    /// <summary>落点区已显示、但还没有文件真的落下来（全局拖拽结束时用它决定要不要收掉）。</summary>
+    private bool _dropPending;
 
     /// <summary>当前提醒是闹钟还是倒计时（决定图标、按钮、文案）。</summary>
     private TimeToolMode _alertKind = TimeToolMode.Alarm;
@@ -142,6 +150,7 @@ public sealed partial class DashboardIslandControl : UserControl
         _toolsHeight = options.ExpandedToolsHeight;
         _settingsHeight = options.ExpandedSettingsHeight;
         _alertHeight = options.ExpandedAlertHeight;
+        _dropHeight = options.ExpandedDropHeight;
 
         // 指标视图：卡片 104 + 横线上方留白 15 之后才是内容区。
         MetricsPanel.Height = _metricsHeight - (2 * PanelPadding);
@@ -154,6 +163,9 @@ public sealed partial class DashboardIslandControl : UserControl
 
         // 到点提醒视图：按钮在左下，页脚在右下，所以只扣内边距。
         AlertPanel.Height = _alertHeight - (2 * PanelPadding);
+
+        // 拖拽解压视图：虚线落点 + 底部按钮。
+        DropPanel.Height = _dropHeight - (2 * PanelPadding);
 
         UpdatePanelHeight(_metricsHeight);
 
@@ -495,6 +507,7 @@ public sealed partial class DashboardIslandControl : UserControl
         DashboardView.Tools => _toolsHeight,
         DashboardView.Settings => _settingsHeight,
         DashboardView.Alert => _alertHeight,
+        DashboardView.Drop => _dropHeight,
         _ => _metricsHeight,
     };
 
@@ -504,6 +517,7 @@ public sealed partial class DashboardIslandControl : UserControl
         DashboardView.Tools => ToolsPanel,
         DashboardView.Settings => SettingsPanel,
         DashboardView.Alert => AlertPanel,
+        DashboardView.Drop => DropPanel,
         _ => MetricsPanel,
     };
 
@@ -512,6 +526,7 @@ public sealed partial class DashboardIslandControl : UserControl
         DashboardView.Tools => "time tools",
         DashboardView.Settings => "settings",
         DashboardView.Alert => "alert",
+        DashboardView.Drop => "drop",
         _ => "metrics",
     };
 
@@ -542,7 +557,7 @@ public sealed partial class DashboardIslandControl : UserControl
     /// 旧视图得等出场动画放完才能收起来（否则看不到淡出），所以这里延迟收尾；
     /// 用序号保证连点时只有最后一次收尾生效，不会把刚滑进来的视图又收掉。
     /// </summary>
-    private async void SwitchTo(DashboardView target, bool animate = true)
+    private async void SwitchTo(DashboardView target, bool animate = true, bool animateHeight = true)
     {
         if (_view == target)
         {
@@ -551,6 +566,19 @@ public sealed partial class DashboardIslandControl : UserControl
 
         var from = _view;
         _view = target;
+
+        // 页脚（设置 / 关闭程序）只在常规视图里显示：解压岛自己有「打开文件夹 / 完成」，
+        // 不需要这两个按钮，留着反而挡在落点区右下角。
+        FooterLayer.Visibility = target == DashboardView.Drop
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+        // 横线只属于「指标 / 时间工具」两页的布局；设置、到点提醒、解压岛里不要它（会横穿内容）。
+        // 注意：这两行的可见性必须在**瞬切（!animate）分支之前**设好 ——
+        // 瞬切分支会提前 return，放在后面就会出现"解压岛上横着一条线"。
+        DividerLine.Visibility = target is DashboardView.Metrics or DashboardView.Tools
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
         var token = ++_viewSwitchToken;
         var incoming = PanelFor(target);
@@ -564,18 +592,13 @@ public sealed partial class DashboardIslandControl : UserControl
             SnapToRest(incoming);
             SnapToRest(outgoing);
             outgoing.Visibility = Visibility.Collapsed;
-            PreferredPanelHeightChanged?.Invoke(HeightFor(target), false);
+            PreferredPanelHeightChanged?.Invoke(HeightFor(target), animateHeight);
             Diagnostics.Log($"dashboard view: {NameFor(target)} (panel {HeightFor(target):0} dip, no animation)");
             return;
         }
 
         // 越往后的视图 = 更"深"的一层：前进从右边进来，返回从左边进来。
         var direction = (int)target > (int)from ? 1f : -1f;
-
-        // 横线只属于「指标 / 时间工具」两页的布局；设置和到点提醒里不要它（会横穿内容）。
-        DividerLine.Visibility = target is DashboardView.Metrics or DashboardView.Tools
-            ? Visibility.Visible
-            : Visibility.Collapsed;
 
         PlayEnter(incoming, direction);
         PlayExit(outgoing, direction);
@@ -616,13 +639,16 @@ public sealed partial class DashboardIslandControl : UserControl
         ToolsPanel.Visibility = Visibility.Collapsed;
         SettingsPanel.Visibility = Visibility.Collapsed;
         AlertPanel.Visibility = Visibility.Collapsed;
+        DropPanel.Visibility = Visibility.Collapsed;
         DividerLine.Visibility = Visibility.Visible;
+        FooterLayer.Visibility = Visibility.Visible;
 
-        // 复位不是过场：把四个视图都推回静止态，免得有半截动画（位移 / 透明度）留在上面。
+        // 复位不是过场：把五个视图都推回静止态，免得有半截动画（位移 / 透明度）留在上面。
         SnapToRest(MetricsPanel);
         SnapToRest(ToolsPanel);
         SnapToRest(SettingsPanel);
         SnapToRest(AlertPanel);
+        SnapToRest(DropPanel);
 
         PreferredPanelHeightChanged?.Invoke(_metricsHeight, false);
 
@@ -830,6 +856,167 @@ public sealed partial class DashboardIslandControl : UserControl
         TimeTools.SnoozeAlarm(TimeSpan.FromMinutes(5));
     }
 
+    // ---------------- 拖拽解压 ----------------
+
+    /// <summary>
+    /// 通知外壳：拖拽 / 解压 / 结果显示期间**别把岛收起来**（true = 保持展开）。
+    /// 拖拽期间和「解压中 / 结果」期间都靠它兜住，否则鼠标一移开岛就缩回去了。
+    /// </summary>
+    public event Action<bool>? KeepExpandedChanged;
+
+    /// <summary>落点区显示中、但文件还没真的落下来。</summary>
+    public bool IsDropPending => _dropPending;
+
+    /// <summary>有文件被拖进岛：切到「虚线落点」视图（默认瞬切，不播视图过场）。</summary>
+    /// <param name="animateHeight">岛已经展开时传 true：让看板高度用弹簧过渡到 230，避免生硬地一帧跳变。</param>
+    public void ShowDropZone(bool animateHeight = false)
+    {
+        _dropPending = true;
+        DropArchiveIcon.Visibility = Visibility.Visible;
+        SetDropState("松开以解压", "支持 .zip（其它格式后续再加）", showProgress: false, showActions: false);
+
+        // 关键：**不走过场**。以前这里是 SwitchTo(Drop)（push/pop 淡入淡出），
+        // 拖进来的第一眼会先看到指标视图（旧视图淡出），然后再淡入落点区 ——
+        // 看起来就是"先显示看板、再显示解压岛"。拖拽场景要的是立刻出现，所以直接瞬切。
+        SwitchTo(DashboardView.Drop, animate: false, animateHeight: animateHeight);
+
+        KeepExpandedChanged?.Invoke(true);
+        Diagnostics.Log("drop: zone shown");
+    }
+
+    /// <summary>
+    /// 拖出岛 / 用户取消：**直接让解压岛消失**（外壳把岛收起），不切回指标视图。
+    /// 以前这里会 SwitchTo(Metrics)，于是"移出"的瞬间会先闪一下指标看板、再收起 —— 观感很差。
+    /// 现在保留 Drop 视图不动，收起后下次展开时 ResetToMetricsView() 会把它复位成指标。
+    /// </summary>
+    public void CancelDrop()
+    {
+        _dropPending = false;
+        Diagnostics.Log("drop: cancelled");
+        KeepExpandedChanged?.Invoke(false);
+    }
+
+    /// <summary>
+    /// 真正落盘：校验格式 → 选目标目录（默认 = 压缩包所在目录）→ 后台解压（带进度）→ 结果状态。
+    /// 解压本体在 <see cref="ArchiveExtractor"/>，这里只负责状态流转。
+    /// </summary>
+    public async Task HandleDropAsync(IReadOnlyList<string> paths)
+    {
+        _dropPending = false;
+
+        var archive = paths.FirstOrDefault(ArchiveExtractor.IsSupported);
+
+        if (archive is null)
+        {
+            KeepExpandedChanged?.Invoke(true);
+            SetDropState("不支持这个格式", "目前只支持 .zip，7z / rar 之后再加", showProgress: false, showActions: true, error: true);
+            Diagnostics.Log("drop: unsupported file");
+            return;
+        }
+
+        var archiveDirectory = Path.GetDirectoryName(archive);
+        var destination = FolderPicker.PickFolder(
+            App.MainWindowHandle,
+            archiveDirectory,
+            $"把「{Path.GetFileName(archive)}」解压到哪个文件夹？");
+
+        if (destination is null)
+        {
+            CancelDrop();
+            return;
+        }
+
+        KeepExpandedChanged?.Invoke(true);
+        SetDropState("解压中…", $"{Path.GetFileName(archive)}  →  {destination}", showProgress: true, showActions: false);
+        DropProgress.Value = 0;
+
+        try
+        {
+            var progress = new Progress<double>(value => DropProgress.Value = value);
+            var result = await ArchiveExtractor.ExtractAsync(archive, destination, progress);
+
+            _lastExtractFolder = result.Destination;
+
+            var note = result.EscapedToSubfolder
+                ? "（目标里已有同名文件，已自动放进同名子文件夹）"
+                : string.Empty;
+
+            SetDropState("解压完成", $"→ {result.Destination} · {result.FileCount} 个文件{note}", showProgress: false, showActions: true, canOpenFolder: true);
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Log($"drop: extract failed: {ex.Message}");
+            SetDropState("解压失败", ex.Message, showProgress: false, showActions: true, error: true);
+        }
+    }
+
+    private void SetDropState(string title, string subtitle, bool showProgress, bool showActions, bool canOpenFolder = false, bool error = false)
+    {
+        DropTitle.Text = title;
+        DropTitle.Foreground = Res(error ? "CriticalTextBrush" : "TextPrimaryBrush");
+
+        DropSubtitle.Text = subtitle;
+        DropSubtitle.Foreground = Res(error ? "CriticalTextBrush" : "TextTertiaryBrush");
+
+        DropProgress.Visibility = showProgress ? Visibility.Visible : Visibility.Collapsed;
+        DropActions.Visibility = showActions ? Visibility.Visible : Visibility.Collapsed;
+        DropOpenFolderButton.Visibility = canOpenFolder ? Visibility.Visible : Visibility.Collapsed;
+        DropCloseButton.Content = canOpenFolder ? "完成" : "关闭";
+    }
+
+    private void HideDrop()
+    {
+        if (_view == DashboardView.Drop)
+        {
+            // 同样瞬切回指标（接着就收起了，没必要播过场）。
+            SwitchTo(DashboardView.Metrics, animate: false);
+        }
+    }
+
+    private void OnDropOpenFolderClick(object sender, RoutedEventArgs e)
+    {
+        if (_lastExtractFolder is { } folder && Directory.Exists(folder))
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true });
+        }
+    }
+
+    private void OnDropCloseClick(object sender, RoutedEventArgs e)
+    {
+        _dropPending = false;
+        _lastExtractFolder = null;
+        KeepExpandedChanged?.Invoke(false);
+        HideDrop();
+    }
+
+    /// <summary>
+    /// 调试钩子：跳过文件夹选择器，直接把 <paramref name="archivePath"/> 解压到它所在目录，
+    /// 用来在没有真实拖拽的情况下走一遍「落点区 → 进度 → 结果」三个状态。
+    /// （真实流程是 <see cref="HandleDropAsync"/>，多了选目录这一步。）
+    /// </summary>
+    public async void RunDropTest(string archivePath)
+    {
+        var destination = Path.GetDirectoryName(archivePath) ?? Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+
+        KeepExpandedChanged?.Invoke(true);
+        ShowDropZone();
+        SetDropState("解压中…", $"{Path.GetFileName(archivePath)}  →  {destination}", showProgress: true, showActions: false);
+        DropProgress.Value = 0;
+
+        try
+        {
+            var progress = new Progress<double>(value => DropProgress.Value = value);
+            var result = await ArchiveExtractor.ExtractAsync(archivePath, destination, progress);
+            _lastExtractFolder = result.Destination;
+            SetDropState("解压完成", $"→ {result.Destination} · {result.FileCount} 个文件", showProgress: false, showActions: true, canOpenFolder: true);
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Log($"drop test: failed: {ex.Message}");
+            SetDropState("解压失败", ex.Message, showProgress: false, showActions: true, error: true);
+        }
+    }
+
     /// <summary>
     /// 把元素推回静止态：透明度 1、位移 0。
     ///
@@ -947,4 +1134,5 @@ internal enum DashboardView
     Tools = 1,
     Settings = 2,
     Alert = 3,
+    Drop = 4,
 }

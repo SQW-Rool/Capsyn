@@ -715,6 +715,112 @@
             </StackPanel>
         </Grid>
 
+        <!-- ==================== 视图 5：拖拽解压 ==================== -->
+
+        <Grid
+            x:Name="DropPanel"
+            VerticalAlignment="Top"
+            Visibility="Collapsed">
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- 虚线落点区：拖进来就显示，松开就进入选择路径 -->
+            <Grid Grid.Row="0" Margin="0,10,0,10">
+                <Rectangle
+                    RadiusX="20"
+                    RadiusY="20"
+                    Stroke="{ThemeResource AccentTextBrush}"
+                    StrokeThickness="1.5"
+                    StrokeDashArray="4 3"
+                    StrokeDashCap="Round"
+                    Opacity="0.85" />
+
+                <StackPanel
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="6">
+
+                    <Grid Width="46" Height="46" HorizontalAlignment="Center">
+                        <Path
+                            x:Name="DropArchiveIcon"
+                            Width="46"
+                            Height="46"
+                            Stretch="Uniform"
+                            Stroke="{ThemeResource AccentTextBrush}"
+                            StrokeThickness="1.6"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round"
+                            Data="M 4,10 H 20 V 20 H 4 Z M 12,3 V 13 M 7.5,8.5 L 12,13 L 16.5,8.5" />
+                    </Grid>
+
+                    <TextBlock
+                        x:Name="DropTitle"
+                        Text="松开以解压"
+                        FontSize="{ThemeResource TypeSubtitleSize}"
+                        FontWeight="{ThemeResource TypeStrongWeight}"
+                        Foreground="{ThemeResource TextPrimaryBrush}"
+                        HorizontalAlignment="Center" />
+
+                    <TextBlock
+                        x:Name="DropSubtitle"
+                        Text="支持 .zip"
+                        Style="{StaticResource HeroCaption}"
+                        HorizontalAlignment="Center"
+                        TextAlignment="Center"
+                        MaxWidth="440"
+                        TextTrimming="CharacterEllipsis" />
+
+                    <ProgressBar
+                        x:Name="DropProgress"
+                        Width="280"
+                        Height="3"
+                        Minimum="0"
+                        Maximum="1"
+                        Value="0"
+                        Margin="0,6,0,0"
+                        Visibility="Collapsed" />
+                </StackPanel>
+            </Grid>
+
+            <!-- 底部按钮：解压完才有（打开文件夹 / 完成） -->
+            <StackPanel
+                x:Name="DropActions"
+                Grid.Row="1"
+                Orientation="Horizontal"
+                Spacing="10"
+                Visibility="Collapsed">
+
+                <Button
+                    x:Name="DropOpenFolderButton"
+                    Content="打开文件夹"
+                    Height="40"
+                    MinWidth="132"
+                    CornerRadius="{ThemeResource CornerRadiusMedium}"
+                    BorderThickness="1"
+                    Background="{ThemeResource AccentTintStrongBrush}"
+                    BorderBrush="{ThemeResource AccentTintMaxBrush}"
+                    Foreground="{ThemeResource AccentTextBrush}"
+                    FontSize="{ThemeResource TypeBodySize}"
+                    Click="OnDropOpenFolderClick" />
+
+                <Button
+                    x:Name="DropCloseButton"
+                    Content="完成"
+                    Height="40"
+                    MinWidth="112"
+                    CornerRadius="{ThemeResource CornerRadiusMedium}"
+                    BorderThickness="1"
+                    Background="{ThemeResource CardBackgroundBrush}"
+                    BorderBrush="{ThemeResource CardBorderStrongBrush}"
+                    Foreground="{ThemeResource TextSecondaryBrush}"
+                    FontSize="{ThemeResource TypeBodySize}"
+                    Click="OnDropCloseClick" />
+            </StackPanel>
+        </Grid>
+
         <!-- ==================== 各个视图共用 ==================== -->
 
         <!-- 横线：位置固定（指标卡片下方 14px），只在指标 / 时间工具两个视图里显示 -->

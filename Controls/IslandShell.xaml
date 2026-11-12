@@ -20,7 +20,13 @@
         WinUI 客户区是不透明的，所以「底板铺满 + 区域裁剪」是唯一不露白的办法。
         尺寸都在代码里按 IslandOptions 设置。
     -->
-    <Grid x:Name="ShellRoot" Background="{x:Null}">
+    <Grid
+        x:Name="ShellRoot"
+        Background="{x:Null}"
+        AllowDrop="True"
+        DragOver="OnShellDragOver"
+        DragLeave="OnShellDragLeave"
+        Drop="OnShellDrop">
 
         <!-- 1) 纯黑底板：铺满整个窗口（默认 Stretch） -->
         <Border x:Name="IslandBackdrop" Background="{ThemeResource IslandSurfaceBrush}" />
