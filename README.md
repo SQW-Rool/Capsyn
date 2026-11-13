@@ -38,8 +38,8 @@
 
 ### 当前版本状态（快照）
 
-* 当前发布版本：tag **`v5.0.0-NewFeatures`**（= 远端 `main` 的最新提交；Release 已标为 Latest）。
-  上一个稳定版：tag `v4.0.0-beta`。
+* 当前发布版本：tag **`v5.1.0-ExtractionKernels`**（= 远端 `main` 的最新提交；Release 已标为 Latest）。
+  上一个版本：tag `v5.0.0-NewFeatures`（拖拽解压原型）；再往前 `v4.0.0-beta`。
 * 这一版包含：时间工具（正计时 / 倒计时 / 闹钟）、收起后的顶部监测区（含第二块独立小圆岛）、
   设置页的铃声板块（5+5 内置音效 + 自定义音频）、到点提醒面板，以及**拖拽解压**
   （把压缩包拖到岛上 → 原生选目录 → 解压；支持 .zip / .7z / .rar / .tar / .tar.gz / .xz / .bz2）。详见第七节。
@@ -895,7 +895,7 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     ⑤ 新增调试钩子 `CAPSYN_DROP_TEST=<zip>`、`CAPSYN_PICK_TEST=1`（OLE 拖放没法脚本模拟，用它做自动验证）；
     ⑥ 实测：解压中文文件名正常、同名冲突自动进子目录（`escaped=True`）、点「完成」回到指标视图并收起、
     `capsyn-crash.log` 为空。
-  * `v5.1.0-ExtractionKernels`（**工作区改动，未打 tag**）—— **解压内核扩展：支持 7z / rar / tar**：
+  * `v5.1.0-ExtractionKernels`（**当前发布版本**：`main` + tag + Release asset）—— **解压内核扩展：支持 7z / rar / tar**：
     ① `.zip` 继续用 .NET 自带 `ZipArchive`（逐条解压、精确进度、挡 zip-slip）；
     ② 新增 `.7z / .rar / .tar / .tar.gz / .tgz / .tar.xz / .txz / .tar.bz2 / .tbz2 / .gz / .xz / .bz2 / .zst / .cab`
     等格式：走**系统自带 `C:\Windows\System32\tar.exe`（bsdtar + libarchive）**——
