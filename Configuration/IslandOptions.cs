@@ -69,11 +69,14 @@ public sealed class IslandOptions
     /// <summary>看板高度（DIP）：拖拽解压视图（虚线落点 + 进度 + 结果）。</summary>
     public double ExpandedDropHeight { get; init; } = 230;
 
+    /// <summary>看板高度（DIP）：音乐控制视图（封面 + 歌名/歌手 + 进度 + 播放控制）。</summary>
+    public double ExpandedMusicHeight { get; init; } = 250;
+
 
     /// <summary>所有视图里最大的看板高度：窗口画布和回弹余量都按它算。</summary>
     public double MaxExpandedHeight => Math.Max(
         Math.Max(ExpandedHeight, ExpandedToolsHeight),
-        Math.Max(ExpandedSettingsHeight, Math.Max(ExpandedAlertHeight, ExpandedDropHeight)));
+        Math.Max(ExpandedSettingsHeight, Math.Max(ExpandedAlertHeight, Math.Max(ExpandedDropHeight, ExpandedMusicHeight))));
 
     /// <summary>看板圆角半径（DIP）。</summary>
     public double ExpandedCornerRadius { get; init; } = 28;

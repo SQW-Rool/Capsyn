@@ -9,7 +9,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Foundation;
+using Windows.Storage.Streams;
 
 namespace Capsyn.Controls;
 
@@ -67,6 +69,16 @@ public sealed partial class DashboardIslandControl : UserControl
     private double _settingsHeight;
     private double _alertHeight;
     private double _dropHeight;
+    private double _musicHeight;
+
+    /// <summary>系统媒体会话服务（由 <see cref="IslandShell"/> 注入）；没注入时音乐视图显示空状态。</summary>
+    private MediaMonitor? _media;
+
+    /// <summary>音乐视图可见时，每 250ms 刷一次进度与位置文字（SMTC 自己不会推动画）。</summary>
+    private DispatcherTimer? _musicTimer;
+
+    /// <summary>最近一次媒体快照。</summary>
+    private MediaSnapshot _mediaSnapshot = MediaSnapshot.Empty;
 
     /// <summary>上一次解压到的目录（「打开文件夹」用）。</summary>
     private string? _lastExtractFolder;
@@ -151,6 +163,7 @@ public sealed partial class DashboardIslandControl : UserControl
         _settingsHeight = options.ExpandedSettingsHeight;
         _alertHeight = options.ExpandedAlertHeight;
         _dropHeight = options.ExpandedDropHeight;
+        _musicHeight = options.ExpandedMusicHeight;
 
         // 指标视图：卡片 104 + 横线上方留白 15 之后才是内容区。
         MetricsPanel.Height = _metricsHeight - (2 * PanelPadding);
@@ -246,6 +259,7 @@ public sealed partial class DashboardIslandControl : UserControl
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _timer.Stop();
+        _musicTimer?.Stop();
     }
 
     private async void OnTimerTick(object? sender, object e) => await SampleAsync();
@@ -508,6 +522,7 @@ public sealed partial class DashboardIslandControl : UserControl
         DashboardView.Settings => _settingsHeight,
         DashboardView.Alert => _alertHeight,
         DashboardView.Drop => _dropHeight,
+        DashboardView.Music => _musicHeight,
         _ => _metricsHeight,
     };
 
@@ -518,6 +533,7 @@ public sealed partial class DashboardIslandControl : UserControl
         DashboardView.Settings => SettingsPanel,
         DashboardView.Alert => AlertPanel,
         DashboardView.Drop => DropPanel,
+        DashboardView.Music => MusicPanel,
         _ => MetricsPanel,
     };
 
@@ -527,6 +543,7 @@ public sealed partial class DashboardIslandControl : UserControl
         DashboardView.Settings => "settings",
         DashboardView.Alert => "alert",
         DashboardView.Drop => "drop",
+        DashboardView.Music => "music",
         _ => "metrics",
     };
 
@@ -567,9 +584,11 @@ public sealed partial class DashboardIslandControl : UserControl
         var from = _view;
         _view = target;
 
+        UpdateMusicTimer();
+
         // 页脚（设置 / 关闭程序）只在常规视图里显示：解压岛自己有「打开文件夹 / 完成」，
-        // 不需要这两个按钮，留着反而挡在落点区右下角。
-        FooterLayer.Visibility = target == DashboardView.Drop
+        // 音乐视图底部是播放控制按钮，这两处都不需要页脚，留着反而挡住内容。
+        FooterLayer.Visibility = target is DashboardView.Drop or DashboardView.Music
             ? Visibility.Collapsed
             : Visibility.Visible;
 
@@ -640,6 +659,7 @@ public sealed partial class DashboardIslandControl : UserControl
         SettingsPanel.Visibility = Visibility.Collapsed;
         AlertPanel.Visibility = Visibility.Collapsed;
         DropPanel.Visibility = Visibility.Collapsed;
+        MusicPanel.Visibility = Visibility.Collapsed;
         DividerLine.Visibility = Visibility.Visible;
         FooterLayer.Visibility = Visibility.Visible;
 
@@ -649,10 +669,188 @@ public sealed partial class DashboardIslandControl : UserControl
         SnapToRest(SettingsPanel);
         SnapToRest(AlertPanel);
         SnapToRest(DropPanel);
+        SnapToRest(MusicPanel);
+
+        UpdateMusicTimer();
 
         PreferredPanelHeightChanged?.Invoke(_metricsHeight, false);
 
         Diagnostics.Log("dashboard view: metrics (reset)");
+    }
+
+    /// <summary>切到音乐视图（调试钩子用；正常入口是指标页的「正在播放」按钮）。</summary>
+    public void ShowMusicView(bool animate = true) => SwitchTo(DashboardView.Music, animate);
+
+    // ---------------- 音乐（系统媒体会话） ----------------
+
+    /// <summary>
+    /// 把系统媒体会话服务接进看板（由 <see cref="IslandShell"/> 初始化时调用）。
+    /// 服务自己会把事件编组到 UI 线程，所以这里可以放心改控件。
+    /// </summary>
+    public void AttachMedia(MediaMonitor media)
+    {
+        _media = media;
+        media.Changed += OnMediaChanged;
+        media.ArtworkChanged += OnMediaArtworkChanged;
+
+        _musicTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _musicTimer.Tick += OnMusicTick;
+
+        // 先按当前状态画一遍：服务可能比看板先初始化好（启动时已经在放歌）。
+        OnMediaChanged(media.Current);
+    }
+
+    private void OnMediaChanged(MediaSnapshot snapshot)
+    {
+        _mediaSnapshot = snapshot;
+
+        MusicTitleText.Text = snapshot.IsAvailable ? snapshot.Title : "没有正在播放的媒体";
+
+        MusicArtistText.Text = snapshot.IsAvailable
+            ? (string.IsNullOrWhiteSpace(snapshot.Artist) ? snapshot.Album : snapshot.Artist)
+            : "打开汽水音乐 / 其他播放器后会自动显示";
+
+        MusicSourceText.Text = snapshot.IsAvailable ? snapshot.SourceApp : string.Empty;
+
+        MusicPlayPauseButton.IsEnabled = snapshot.IsAvailable;
+        MusicPreviousButton.IsEnabled = snapshot.IsAvailable && snapshot.CanSkipPrevious;
+        MusicNextButton.IsEnabled = snapshot.IsAvailable && snapshot.CanSkipNext;
+
+        MusicPlayIcon.Visibility = snapshot.IsPlaying ? Visibility.Collapsed : Visibility.Visible;
+        MusicPauseIcon.Visibility = snapshot.IsPlaying ? Visibility.Visible : Visibility.Collapsed;
+
+        // 指标页的「正在播放」入口：没有媒体就整颗按钮收起来。
+        MetricsMusicButton.Visibility = snapshot.IsAvailable ? Visibility.Visible : Visibility.Collapsed;
+        MetricsMusicText.Text = snapshot.IsAvailable ? snapshot.Title : "正在播放";
+
+        UpdateMusicProgress();
+        UpdateMusicTimer();
+
+        Diagnostics.Log(
+            $"media: ui available={snapshot.IsAvailable} playing={snapshot.IsPlaying} " +
+            $"title=\"{snapshot.Title}\" artist=\"{snapshot.Artist}\" source=\"{snapshot.SourceApp}\"");
+    }
+
+    private void OnMediaArtworkChanged(byte[]? artwork)
+    {
+        if (artwork is null || artwork.Length == 0)
+        {
+            MusicCoverImage.Source = null;
+            MusicCoverImage.Visibility = Visibility.Collapsed;
+            MusicCoverPlaceholder.Visibility = Visibility.Visible;
+            return;
+        }
+
+        _ = ShowCoverAsync(artwork);
+    }
+
+    /// <summary>封面字节 → <see cref="BitmapImage"/>（只能在 UI 线程做）。</summary>
+    private async Task ShowCoverAsync(byte[] artwork)
+    {
+        try
+        {
+            using var stream = new InMemoryRandomAccessStream();
+            using (var writer = new DataWriter(stream))
+            {
+                writer.WriteBytes(artwork);
+                await writer.StoreAsync();
+                await writer.FlushAsync();
+                writer.DetachStream();
+            }
+
+            stream.Seek(0);
+
+            var bitmap = new BitmapImage();
+            await bitmap.SetSourceAsync(stream);
+
+            MusicCoverImage.Source = bitmap;
+            MusicCoverImage.Visibility = Visibility.Visible;
+            MusicCoverPlaceholder.Visibility = Visibility.Collapsed;
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Log($"media: 封面显示失败：{ex.Message}");
+        }
+    }
+
+    private void OnMusicTick(object? sender, object e) => UpdateMusicProgress();
+
+    /// <summary>只在「音乐视图可见且有媒体」时跑 250ms 计时器，其它时候停着不耗电。</summary>
+    private void UpdateMusicTimer()
+    {
+        if (_musicTimer is null)
+        {
+            return;
+        }
+
+        var shouldRun = _view == DashboardView.Music && _mediaSnapshot.IsAvailable;
+
+        if (shouldRun && !_musicTimer.IsEnabled)
+        {
+            _musicTimer.Start();
+        }
+        else if (!shouldRun && _musicTimer.IsEnabled)
+        {
+            _musicTimer.Stop();
+        }
+    }
+
+    private void UpdateMusicProgress()
+    {
+        var position = _media?.EstimatePosition() ?? _mediaSnapshot.Position;
+        var duration = _mediaSnapshot.Duration;
+
+        MusicProgress.Value = duration > TimeSpan.Zero
+            ? Math.Clamp(position.TotalMilliseconds / duration.TotalMilliseconds, 0, 1)
+            : 0;
+
+        MusicPositionText.Text = _mediaSnapshot.IsAvailable ? FormatMediaTime(position) : "--:--";
+        MusicDurationText.Text = duration > TimeSpan.Zero ? FormatMediaTime(duration) : "--:--";
+    }
+
+    private static string FormatMediaTime(TimeSpan value)
+        => value.TotalHours >= 1 ? value.ToString(@"h\:mm\:ss") : value.ToString(@"m\:ss");
+
+    private void OnMetricsMusicClick(object sender, RoutedEventArgs e)
+    {
+        Diagnostics.Log("click: music");
+        SwitchTo(DashboardView.Music);
+    }
+
+    private void OnMusicBackClick(object sender, RoutedEventArgs e) => SwitchTo(DashboardView.Metrics);
+
+    private async void OnMusicPlayPauseClick(object sender, RoutedEventArgs e)
+    {
+        if (_media is null)
+        {
+            return;
+        }
+
+        var ok = await _media.TogglePlayPauseAsync();
+        Diagnostics.Log($"click: music play/pause ok={ok}");
+        UpdateMusicProgress();
+    }
+
+    private async void OnMusicPreviousClick(object sender, RoutedEventArgs e)
+    {
+        if (_media is null)
+        {
+            return;
+        }
+
+        var ok = await _media.SkipPreviousAsync();
+        Diagnostics.Log($"click: music previous ok={ok}");
+    }
+
+    private async void OnMusicNextClick(object sender, RoutedEventArgs e)
+    {
+        if (_media is null)
+        {
+            return;
+        }
+
+        var ok = await _media.SkipNextAsync();
+        Diagnostics.Log($"click: music next ok={ok}");
     }
 
     // ---------------- 设置：铃声 ----------------
@@ -1151,4 +1349,5 @@ internal enum DashboardView
     Settings = 2,
     Alert = 3,
     Drop = 4,
+    Music = 5,
 }

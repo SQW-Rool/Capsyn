@@ -43,6 +43,8 @@
 * **新功能版**：tag `v5.0.0-NewFeatures` —— 在 4.0.0 基础上加拖拽解压（`.zip`），已作为正式版发布但不是 Latest。
 * **预发行 / 测试版**：tag `v5.1.0-ExtractionKernels` —— 解压内核扩展到 `.7z / .rar / .tar / .tar.gz / .xz / .bz2`
   等格式并加了进度条（GitHub 上标为 Pre-release）。详见第七节。
+* **进行中（分支 `feature/music-control`，未打 tag）**：音乐控制 —— 读系统媒体会话显示歌名/歌手/封面/进度，
+  并支持播放暂停 / 上一首 / 下一首（对着汽水音乐实测通过）。详见「三、关键实现点 → 音乐控制」。
 * 「拖拽一开始就自动出现落点区」的**实验**做过三轮（WinEvent / 鼠标钩子 / 透明接收区），
   因安全前提下无法同时满足“即时 + 只认 zip + 零误触发”，已撤掉并删除实验分支，代码回到本版行为。
 * **已实现**：时间岛胶囊（时钟 / 监测区，宽度会随占用变化）；看板岛（指标 / 时间工具 / 设置 / 到点提醒
@@ -167,6 +169,7 @@ UI 线程上的异常记完会标记为「已处理」，让悬浮岛继续活�
 | `Services/Diagnostics.cs` | 开关式诊断日志（`CAPSYN_DIAG=1`）+ **永远写**的崩溃日志（含 InnerException 链） |
 | `Services/RingtoneLibrary.cs` | **10 个内置铃声**：代码合成的 WAV（闹钟 5 + 倒计时 5） |
 | `Services/RingtoneService.cs` | 铃声播放：落盘 + winmm `PlaySound`（循环 / 停 / 试听 / 自动超时） |
+| `Services/MediaMonitor.cs` | **音乐控制的数据层**：订阅系统媒体会话（SMTC），拿歌名 / 歌手 / 专辑 / 封面 / 播放状态 / 时长，并把播放 / 暂停 / 上一首 / 下一首发回去；事件统一编组到 UI 线程 |
 | `Helpers/ColorHelper.cs` | `#RRGGBB` / `#AARRGGBB` 解析 |
 | `Configuration/IslandOptions.cs` | 全部可调参数：尺寸、缝隙、回弹余量、弹簧参数、淡入淡出时长、采样间隔 |
 | `Configuration/AppSettings.cs` | 用户设置（`%LOCALAPPDATA%\Capsyn\settings.json`）：闹钟 / 倒计时铃声序号 |
@@ -535,6 +538,23 @@ DashboardIslandControl.OnCloseClick
 **已知**：只支持 `.zip`。要支持 7z / rar，改走系统自带的 `C:\Windows\System32\tar.exe`（libarchive）
 或 shell 的「全部解压缩」动词即可，`ArchiveExtractor` 的接口不用动。
 
+### 音乐控制（分支 `feature/music-control`，未发布）
+
+数据来自 **系统媒体会话（SMTC）**，不是给某个播放器写死的适配器 —— 汽水音乐 / 网易云 / Spotify / 浏览器
+注册了媒体会话就都能读能控；UIA 那条路在本机实测对汽水音乐是空的（Chromium 默认不暴露无障碍树），
+所以没走。
+
+| 项 | 实现 |
+| --- | --- |
+| 数据层 | `Services/MediaMonitor.cs`：`GlobalSystemMediaTransportControlsSessionManager.RequestAsync()` → 订阅 `SessionsChanged` / `CurrentSessionChanged` / `MediaPropertiesChanged` / `PlaybackInfoChanged` / `TimelinePropertiesChanged`；快照 `MediaSnapshot`（歌名 / 歌手 / 专辑 / 是否播放 / 位置 / 时长 / 能否跳曲 / 来源应用）；事件统一编组到 UI 线程 |
+| 控制 | `TryTogglePlayPauseAsync` / `TrySkipNextAsync` / `TrySkipPreviousAsync`（返回 false 就禁用对应按钮） |
+| 进度 | SMTC 只给「某一刻的位置」，`EstimatePosition()` 在播放中按经过时间插值；音乐视图可见时用 250ms 定时器刷新进度条与时间文字（隐藏时停表） |
+| 封面 | `Thumbnail.OpenReadAsync()` → `byte[]` → UI 线程转 `BitmapImage`；换歌才重新读（按「歌名\|歌手」缓存 key） |
+| UI | 新视图 `DashboardView.Music`（高度 250，无页脚 / 无横线）：返回 + 封面 + 歌名 + 歌手 + 进度 + 上一首 / 播放暂停 / 下一首；空状态显示「没有正在播放的媒体」；指标页底部多一颗「♪ 歌名」入口（**没有媒体会话时整颗按钮隐藏**） |
+| 实测 | 汽水音乐正在播放时：UI 读到 `Shark / 小恒 / 0:04 / 2:25 / 汽水音乐`；点播放暂停 → `ok=True` 且状态真的翻转；下一首 → 歌变成 `清空 - 袁小葳, 阿辰`；上一首 → 回到 `Shark`；无崩溃 |
+
+**调试钩子**：`CAPSYN_MUSIC_TEST=1` 启动后自动展开看板并切到音乐视图（截图 / 自动验证用）。
+
 ---
 
 ## 四、验收对照（实测结果）
@@ -672,7 +692,7 @@ DashboardIslandControl.OnCloseClick
   时间岛上显示剩余 / 已用时间（时间岛目前只显示 `HH:MM:SS`）
 * **设置面板**：`DashboardIslandControl` 的 `SettingsButton` 现在只有 UI（不接 `Click`、不写日志），
   要接设置项时给它加 `Click`，然后弹窗或者再展开一块岛
-* **音乐卡片 / 计时器**：同样加 ViewModel + 往看板留白区放控件
+* ~~**音乐卡片 / 计时器**~~：音乐已实现（`MediaMonitor` + `DashboardView.Music`，见第三节）；计时器已在时间工具视图里
 * **更多图表**：第四格、以及看板下半部分
 * **鼠标穿透开关**：`IslandWindowStyler.ApplyChrome()` 里加 `WS_EX_TRANSPARENT | WS_EX_LAYERED` + 运行时开关
 * **点击交互**：`IslandShell` 里订阅指针事件（目前刻意不接，只有悬停判定）
@@ -908,6 +928,15 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     ⑤ 实测（`CAPSYN_DROP_TEST`）：`sample.zip` 走 `unzip(zip)` 1 个文件 16 B、
     `sample.7z` 走 `unzip(tar)` 1 个文件 2844 B、`sample.tar.gz` 冲突时自动进 `sample\` 子目录，
     均显示「解压完成 + 路径 + 文件数」，无崩溃。
+  * `v5.2.0-MusicControl`（**分支 `feature/music-control`，未打 tag**）—— **音乐控制**：
+    ① 新增 `Services/MediaMonitor.cs`：订阅系统媒体会话（SMTC），拿到歌名 / 歌手 / 专辑 / 封面 / 播放状态 / 时长，
+    并把播放暂停 / 上一首 / 下一首发回去（`TryTogglePlayPauseAsync` / `TrySkipNextAsync` / `TrySkipPreviousAsync`）；
+    ② 新增看板视图 `Music`（高度 250，`IslandOptions.ExpandedMusicHeight`）：封面 + 歌名 + 歌手 + 进度条 + 三个控制按钮，
+    空状态显示「没有正在播放的媒体」；指标页多一颗「♪ 歌名」入口（没有会话时隐藏）；
+    ③ 进度用「某一刻位置 + 经过时间」插值，音乐视图可见时 250ms 刷新、隐藏即停表；
+    ④ 线程：SMTC 事件统一编组到 UI 线程；会话消失 / COM 异常时自动重连；
+    ⑤ 实测（对着汽水音乐，`CAPSYN_MUSIC_TEST=1`）：UI 读到 `Shark / 小恒 / 汽水音乐`，点播放暂停 `ok=True` 且状态翻转，
+    下一首切到 `清空 - 袁小葳, 阿辰`、上一首回到 `Shark`，无崩溃。UIA 路线实测不可行（汽水音乐是 Chromium 壳，UIA 树只有 2 个元素）。
 
 
 ---

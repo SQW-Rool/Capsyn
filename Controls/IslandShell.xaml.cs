@@ -68,6 +68,9 @@ public sealed partial class IslandShell : UserControl
     private readonly DispatcherTimer _timeToolsTimer;
 
     private IslandAnimator? _panelAnimator;
+
+    /// <summary>系统媒体会话（SMTC）监听：音乐视图的数据来源。</summary>
+    private MediaMonitor? _media;
     private bool _expanded;
     private bool _shapeSyncRunning;
     private bool _ready;
@@ -184,6 +187,11 @@ public sealed partial class IslandShell : UserControl
             _options.ContentFadeInDuration,
             _options.ContentFadeOutDuration);
 
+        // 音乐：拿到系统媒体会话后注入看板（服务自己会编组回 UI 线程）。
+        _media = new MediaMonitor(Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
+        Dashboard.AttachMedia(_media);
+        _ = _media.InitializeAsync();
+
         Dashboard.ExitRequested += OnExitRequested;
         Dashboard.PreferredPanelHeightChanged += OnPreferredPanelHeightChanged;
         Dashboard.KeepExpandedChanged += OnDashboardKeepExpandedChanged;
@@ -247,6 +255,21 @@ public sealed partial class IslandShell : UserControl
             _dropTestTimer.Start();
         }
 
+        // CAPSYN_MUSIC_TEST=1：展开看板并切到音乐视图（截图 / 自动验证用）。
+        if (Environment.GetEnvironmentVariable("CAPSYN_MUSIC_TEST") == "1")
+        {
+            var musicTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000) };
+            _dropTestTimer = musicTimer;
+            musicTimer.Tick += (_, _) =>
+            {
+                musicTimer.Stop();
+                SetDashboardExpanded(true, resetView: false);
+                Dashboard.ShowMusicView(animate: false);
+                Diagnostics.Log("music test: 已切到音乐视图");
+            };
+            musicTimer.Start();
+        }
+
         if (Environment.GetEnvironmentVariable("CAPSYN_PICK_TEST") == "1")
         {
             FolderPicker.SmokeTest(@"C:\Windows");
@@ -300,6 +323,8 @@ public sealed partial class IslandShell : UserControl
         Clock.PreferredWidthChanged -= OnClockPreferredWidthChanged;
         _dragLeaveTimer.Stop();
 
+        _media?.Dispose();
+        _media = null;
 
         _dropTestTimer?.Stop();
         _dropTestTimer = null;

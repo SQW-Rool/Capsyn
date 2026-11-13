@@ -108,33 +108,67 @@
             </Grid>
 
             <!-- 「时间工具」入口 -->
-            <Button
-                x:Name="TimeToolsButton"
+            <!-- 底部入口行：时间工具 + 正在播放（有媒体时才出现） -->
+            <StackPanel
                 Grid.Row="2"
                 Margin="0,16,0,0"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Top"
-                Style="{StaticResource ToolButton}"
-                Click="OnTimeToolsClick">
+                Orientation="Horizontal"
+                Spacing="10"
+                VerticalAlignment="Top">
 
-                <StackPanel Orientation="Horizontal" Spacing="9">
-                    <!-- 时钟图标：矢量路径（圆环 + 两根指针），不依赖任何图标字体 -->
-                    <Path
-                        Width="{ThemeResource IconSizeStandard}"
-                        Height="{ThemeResource IconSizeStandard}"
-                        Stretch="Uniform"
-                        Stroke="{ThemeResource TextPrimaryBrush}"
-                        StrokeThickness="{ThemeResource IconStrokeThickness}"
-                        StrokeStartLineCap="Round"
-                        StrokeEndLineCap="Round"
-                        Data="M 12,3 A 9,9 0 1 1 11.99,3 M 12,12 L 12,6.5 M 12,12 L 16.5,14.5" />
-                    <TextBlock
-                        Text="时间工具"
-                        FontSize="{ThemeResource TypeBodySize}"
-                        Foreground="{ThemeResource TextPrimaryBrush}"
-                        VerticalAlignment="Center" />
-                </StackPanel>
-            </Button>
+                <Button
+                    x:Name="TimeToolsButton"
+                    Style="{StaticResource ToolButton}"
+                    Click="OnTimeToolsClick">
+
+                    <StackPanel Orientation="Horizontal" Spacing="9">
+                        <!-- 时钟图标：矢量路径（圆环 + 两根指针），不依赖任何图标字体 -->
+                        <Path
+                            Width="{ThemeResource IconSizeStandard}"
+                            Height="{ThemeResource IconSizeStandard}"
+                            Stretch="Uniform"
+                            Stroke="{ThemeResource TextPrimaryBrush}"
+                            StrokeThickness="{ThemeResource IconStrokeThickness}"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round"
+                            Data="M 12,3 A 9,9 0 1 1 11.99,3 M 12,12 L 12,6.5 M 12,12 L 16.5,14.5" />
+                        <TextBlock
+                            Text="时间工具"
+                            FontSize="{ThemeResource TypeBodySize}"
+                            Foreground="{ThemeResource TextPrimaryBrush}"
+                            VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- 正在播放入口：没有媒体会话时整颗按钮隐藏 -->
+                <Button
+                    x:Name="MetricsMusicButton"
+                    Style="{StaticResource ToolButton}"
+                    Click="OnMetricsMusicClick"
+                    Visibility="Collapsed">
+
+                    <StackPanel Orientation="Horizontal" Spacing="9">
+                        <Path
+                            Width="{ThemeResource IconSizeStandard}"
+                            Height="{ThemeResource IconSizeStandard}"
+                            Stretch="Uniform"
+                            Stroke="{ThemeResource AccentTextBrush}"
+                            StrokeThickness="{ThemeResource IconStrokeThickness}"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round"
+                            Data="M 9.5,17.5 A 2.4,2.4 0 1 1 9.49,17.5 M 11.9,17.5 V 6.5 L 18,5 V 15 M 18,15 A 2.4,2.4 0 1 1 17.99,15" />
+
+                        <TextBlock
+                            x:Name="MetricsMusicText"
+                            Text="正在播放"
+                            FontSize="{ThemeResource TypeBodySize}"
+                            Foreground="{ThemeResource TextPrimaryBrush}"
+                            VerticalAlignment="Center"
+                            TextTrimming="CharacterEllipsis"
+                            MaxWidth="220" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
         </Grid>
 
         <!-- ==================== 视图 2：时间工具 ==================== -->
@@ -819,6 +853,197 @@
                     FontSize="{ThemeResource TypeBodySize}"
                     Click="OnDropCloseClick" />
             </StackPanel>
+        </Grid>
+
+        <!-- ==================== 视图 6：音乐 ==================== -->
+
+        <Grid
+            x:Name="MusicPanel"
+            VerticalAlignment="Top"
+            Visibility="Collapsed">
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="40" />
+                <RowDefinition Height="14" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- 标题行：返回 + 标题 + 来源应用 -->
+            <Grid Grid.Row="0">
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <Button
+                        x:Name="MusicBackButton"
+                        Style="{StaticResource IconButton}"
+                        Click="OnMusicBackClick">
+
+                        <Path
+                            Width="{ThemeResource IconSizeStandard}"
+                            Height="{ThemeResource IconSizeStandard}"
+                            Stretch="Uniform"
+                            Stroke="{ThemeResource TextPrimaryBrush}"
+                            StrokeThickness="{ThemeResource IconStrokeThickness}"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round"
+                            Data="M 11,5 L 3,12 L 11,19 M 3,12 L 21,12" />
+                    </Button>
+
+                    <TextBlock Text="音乐" Style="{StaticResource ToolsTitle}" />
+                </StackPanel>
+
+                <TextBlock
+                    x:Name="MusicSourceText"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource HeroCaption}"
+                    TextTrimming="CharacterEllipsis"
+                    MaxWidth="200" />
+            </Grid>
+
+            <!-- 内容：封面 + 信息 + 进度 + 控制 -->
+            <Grid Grid.Row="2" ColumnSpacing="18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="116" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 封面（没图时显示音符占位） -->
+                <Border
+                    x:Name="MusicCoverFrame"
+                    Width="116"
+                    Height="116"
+                    VerticalAlignment="Top"
+                    CornerRadius="14"
+                    BorderThickness="1"
+                    BorderBrush="{ThemeResource CardBorderStrongBrush}"
+                    Background="{ThemeResource CardBackgroundBrush}">
+                    <Grid>
+                        <Image
+                            x:Name="MusicCoverImage"
+                            Stretch="UniformToFill"
+                            Visibility="Collapsed" />
+
+                        <Path
+                            x:Name="MusicCoverPlaceholder"
+                            Width="44"
+                            Height="44"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Stretch="Uniform"
+                            Stroke="{ThemeResource TextSecondaryBrush}"
+                            StrokeThickness="1.5"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round"
+                            Opacity="0.7"
+                            Data="M 9.5,17.5 A 2.4,2.4 0 1 1 9.49,17.5 M 11.9,17.5 V 6.5 L 18,5 V 15 M 18,15 A 2.4,2.4 0 1 1 17.99,15" />
+                    </Grid>
+                </Border>
+
+                <StackPanel Grid.Column="1">
+                    <TextBlock
+                        x:Name="MusicTitleText"
+                        Text="没有正在播放的媒体"
+                        FontSize="20"
+                        FontWeight="{ThemeResource TypeStrongWeight}"
+                        Foreground="{ThemeResource TextPrimaryBrush}"
+                        TextTrimming="CharacterEllipsis"
+                        MaxLines="1" />
+
+                    <TextBlock
+                        x:Name="MusicArtistText"
+                        Text="打开汽水音乐 / 其他播放器后会自动显示"
+                        Style="{StaticResource HeroCaption}"
+                        Margin="0,4,0,0"
+                        TextTrimming="CharacterEllipsis"
+                        MaxLines="1" />
+
+                    <ProgressBar
+                        x:Name="MusicProgress"
+                        Minimum="0"
+                        Maximum="1"
+                        Value="0"
+                        Height="4"
+                        Margin="0,14,0,0" />
+
+                    <Grid Margin="0,4,0,0">
+                        <TextBlock
+                            x:Name="MusicPositionText"
+                            Text="--:--"
+                            Style="{StaticResource HeroCaption}" />
+
+                        <TextBlock
+                            x:Name="MusicDurationText"
+                            Text="--:--"
+                            HorizontalAlignment="Right"
+                            Style="{StaticResource HeroCaption}" />
+                    </Grid>
+
+                    <StackPanel
+                        Orientation="Horizontal"
+                        Spacing="12"
+                        Margin="0,10,0,0">
+
+                        <Button
+                            x:Name="MusicPreviousButton"
+                            Style="{StaticResource IconButton}"
+                            Click="OnMusicPreviousClick"
+                            IsEnabled="False">
+
+                            <Path
+                                Width="{ThemeResource IconSizeStandard}"
+                                Height="{ThemeResource IconSizeStandard}"
+                                Stretch="Uniform"
+                                Stroke="{ThemeResource TextPrimaryBrush}"
+                                StrokeThickness="{ThemeResource IconStrokeThickness}"
+                                StrokeStartLineCap="Round"
+                                StrokeEndLineCap="Round"
+                                Data="M 5,5 V 19 M 19,5 L 8,12 L 19,19 Z" />
+                        </Button>
+
+                        <Button
+                            x:Name="MusicPlayPauseButton"
+                            Style="{StaticResource IconButton}"
+                            Click="OnMusicPlayPauseClick"
+                            IsEnabled="False">
+
+                            <Grid>
+                                <Path
+                                    x:Name="MusicPlayIcon"
+                                    Width="{ThemeResource IconSizeStandard}"
+                                    Height="{ThemeResource IconSizeStandard}"
+                                    Stretch="Uniform"
+                                    Fill="{ThemeResource TextPrimaryBrush}"
+                                    Data="M 7,4 L 20,12 L 7,20 Z" />
+
+                                <Path
+                                    x:Name="MusicPauseIcon"
+                                    Width="{ThemeResource IconSizeStandard}"
+                                    Height="{ThemeResource IconSizeStandard}"
+                                    Stretch="Uniform"
+                                    Fill="{ThemeResource TextPrimaryBrush}"
+                                    Visibility="Collapsed"
+                                    Data="M 6,4 H 10 V 20 H 6 Z M 14,4 H 18 V 20 H 14 Z" />
+                            </Grid>
+                        </Button>
+
+                        <Button
+                            x:Name="MusicNextButton"
+                            Style="{StaticResource IconButton}"
+                            Click="OnMusicNextClick"
+                            IsEnabled="False">
+
+                            <Path
+                                Width="{ThemeResource IconSizeStandard}"
+                                Height="{ThemeResource IconSizeStandard}"
+                                Stretch="Uniform"
+                                Stroke="{ThemeResource TextPrimaryBrush}"
+                                StrokeThickness="{ThemeResource IconStrokeThickness}"
+                                StrokeStartLineCap="Round"
+                                StrokeEndLineCap="Round"
+                                Data="M 19,5 V 19 M 5,5 L 16,12 L 5,19 Z" />
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
         </Grid>
 
         <!-- ==================== 各个视图共用 ==================== -->
