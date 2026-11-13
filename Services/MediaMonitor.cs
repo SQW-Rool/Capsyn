@@ -74,8 +74,11 @@ public sealed class MediaMonitor : IDisposable
     /// <summary>快照变化（切歌 / 播放状态变化 / 进度校正）。</summary>
     public event Action<MediaSnapshot>? Changed;
 
-    /// <summary>封面图变化；参数是原始字节（<c>null</c> 表示没有封面）。由 UI 自己转成图片。</summary>
-    public event Action<byte[]?>? ArtworkChanged;
+    /// <summary>
+    /// 封面图变化：原始字节（<c>null</c> 表示没有封面）+ 这张图对应的「歌名|歌手」key。
+    /// 带上 key 是为了让 UI 丢掉迟到的旧封面（播放器切歌时异步读图会乱序）。
+    /// </summary>
+    public event Action<byte[]?, string>? ArtworkChanged;
 
     /// <summary>当前快照。</summary>
     public MediaSnapshot Current => _current;
@@ -158,7 +161,8 @@ public sealed class MediaMonitor : IDisposable
 
         if (session is null)
         {
-            Publish(MediaSnapshot.Empty, artwork: null, resetArtwork: true);
+            Publish(MediaSnapshot.Empty);
+            PublishArtwork(artwork: null, key: string.Empty);
             return;
         }
 
@@ -247,7 +251,8 @@ public sealed class MediaMonitor : IDisposable
 
         if (session is null)
         {
-            Publish(MediaSnapshot.Empty, artwork: null, resetArtwork: true);
+            Publish(MediaSnapshot.Empty);
+            PublishArtwork(artwork: null, key: string.Empty);
             return;
         }
 
@@ -284,24 +289,127 @@ public sealed class MediaMonitor : IDisposable
                 SourceApp: session.SourceAppUserModelId ?? string.Empty);
 
             // 封面：换歌才重新读，避免每次播放状态变化都拉一遍图片。
+            // 注意：SMTC 的「元数据」和「缩略图」切换不是原子的 —— 切歌瞬间读到的标题已经是新歌、
+            // 缩略图可能还是上一首。所以这里不直接读图，而是记下目标 key，交给 LoadArtworkAsync
+            // 延迟一小会儿、并在读到标题匹配时才采用（最多重试几次）。
             var artworkKey = $"{title}|{artist}";
-            byte[]? artwork = null;
-            var artworkChanged = false;
+            var artworkChanged = !string.Equals(artworkKey, _artworkKey, StringComparison.Ordinal);
 
-            if (!string.Equals(artworkKey, _artworkKey, StringComparison.Ordinal))
+            Publish(snapshot);
+
+            if (artworkChanged)
             {
                 _artworkKey = artworkKey;
-                artwork = await TryReadThumbnailAsync(properties);
-                artworkChanged = true;
+                var loadId = ++_artworkLoadId;
+                _ = LoadArtworkAsync(artworkKey, loadId);
             }
-
-            Publish(snapshot, artwork, resetArtwork: artworkChanged);
         }
         catch (Exception ex)
         {
             Diagnostics.Log($"media: 读取会话失败：{ex.Message}");
             await ReinitializeAsync();
         }
+    }
+
+    /// <summary>当前封面加载的代数：切歌时旧任务的结果要丢掉。</summary>
+    private int _artworkLoadId;
+
+    /// <summary>
+    /// 延迟加载封面：最多重试 4 次（每次 250ms），直到「读到的歌名|歌手」和目标 key 一致才采用。
+    /// 这样切歌瞬间拿到的旧缩略图不会污染新歌封面。
+    /// </summary>
+    private async Task LoadArtworkAsync(string expectedKey, int loadId)
+    {
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            if (loadId != _artworkLoadId || _disposed)
+            {
+                return;
+            }
+
+            var session = _session;
+            if (session is null)
+            {
+                return;
+            }
+
+            GlobalSystemMediaTransportControlsSessionMediaProperties? properties = null;
+
+            try
+            {
+                properties = await session.TryGetMediaPropertiesAsync();
+            }
+            catch (Exception ex)
+            {
+                Diagnostics.Log($"media: 读封面元数据失败（第 {attempt + 1} 次）：{ex.Message}");
+            }
+
+            var key = $"{properties?.Title}|{properties?.Artist}";
+
+            if (string.Equals(key, expectedKey, StringComparison.Ordinal))
+            {
+                var artwork = await TryReadThumbnailAsync(properties);
+
+                if (loadId == _artworkLoadId && !_disposed)
+                {
+                    PublishArtwork(artwork, expectedKey);
+                }
+
+                // 有些播放器（比如汽水音乐）的缩略图比元数据晚一拍：等 800ms 再读一次覆盖，
+                // 否则切歌瞬间会把上一首的封面贴到新歌上（而且之后没有事件再纠正）。
+                try
+                {
+                    await Task.Delay(800);
+                }
+                catch
+                {
+                    return;
+                }
+
+                if (loadId != _artworkLoadId || _disposed)
+                {
+                    return;
+                }
+
+                var again = await _session?.TryGetMediaPropertiesAsync();
+                var againKey = $"{again?.Title}|{again?.Artist}";
+
+                if (string.Equals(againKey, expectedKey, StringComparison.Ordinal))
+                {
+                    var refreshed = await TryReadThumbnailAsync(again);
+
+                    if (loadId == _artworkLoadId && !_disposed)
+                    {
+                        PublishArtwork(refreshed, expectedKey);
+                    }
+                }
+
+                return;
+            }
+
+            try
+            {
+                await Task.Delay(250);
+            }
+            catch
+            {
+                return;
+            }
+        }
+
+        Diagnostics.Log($"media: 封面加载放弃（一直没等到 {expectedKey} 的元数据）");
+    }
+
+    /// <summary>只发封面事件，不动快照。</summary>
+    private void PublishArtwork(byte[]? artwork, string key)
+    {
+        _dispatcher.TryEnqueue(() =>
+        {
+            if (!_disposed)
+            {
+                ArtworkChanged?.Invoke(artwork, key);
+            }
+        });
     }
 
     private static async Task<byte[]?> TryReadThumbnailAsync(GlobalSystemMediaTransportControlsSessionMediaProperties? properties)
@@ -333,22 +441,15 @@ public sealed class MediaMonitor : IDisposable
     }
 
     /// <summary>把快照编组到 UI 线程后发布。</summary>
-    private void Publish(MediaSnapshot snapshot, byte[]? artwork, bool resetArtwork)
+    private void Publish(MediaSnapshot snapshot)
     {
         _current = snapshot;
 
         _dispatcher.TryEnqueue(() =>
         {
-            if (_disposed)
+            if (!_disposed)
             {
-                return;
-            }
-
-            Changed?.Invoke(snapshot);
-
-            if (resetArtwork)
-            {
-                ArtworkChanged?.Invoke(artwork);
+                Changed?.Invoke(snapshot);
             }
         });
     }

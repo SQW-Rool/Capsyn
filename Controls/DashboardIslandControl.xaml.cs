@@ -744,8 +744,17 @@ public sealed partial class DashboardIslandControl : UserControl
             $"title=\"{snapshot.Title}\" artist=\"{snapshot.Artist}\" source=\"{snapshot.SourceApp}\"");
     }
 
-    private void OnMediaArtworkChanged(byte[]? artwork)
+    /// <summary>每次换封面自增：异步解码完成时用来丢掉「迟到的旧封面」。</summary>
+    private int _coverGeneration;
+
+    private void OnMediaArtworkChanged(byte[]? artwork, string key)
     {
+        // 只认当前这首歌的封面：切歌时音频/缩略图读取会乱序，晚到的旧图要丢掉。
+        if (!string.Equals(key, ArtworkKeyOf(_mediaSnapshot), StringComparison.Ordinal))
+        {
+            return;
+        }
+
         if (artwork is null || artwork.Length == 0)
         {
             MusicCoverImage.Source = null;
@@ -756,11 +765,14 @@ public sealed partial class DashboardIslandControl : UserControl
             return;
         }
 
-        _ = ShowCoverAsync(artwork);
+        _ = ShowCoverAsync(artwork, ++_coverGeneration);
     }
 
+    /// <summary>和 <see cref="MediaMonitor"/> 里一致的封面缓存 key。</summary>
+    private static string ArtworkKeyOf(MediaSnapshot snapshot) => $"{snapshot.Title}|{snapshot.Artist}";
+
     /// <summary>封面字节 → <see cref="BitmapImage"/>（只能在 UI 线程做）。</summary>
-    private async Task ShowCoverAsync(byte[] artwork)
+    private async Task ShowCoverAsync(byte[] artwork, int generation)
     {
         try
         {
@@ -777,6 +789,12 @@ public sealed partial class DashboardIslandControl : UserControl
 
             var bitmap = new BitmapImage();
             await bitmap.SetSourceAsync(stream);
+
+            // 解码期间又换歌了：这张图已经过期，别覆盖新封面。
+            if (generation != _coverGeneration)
+            {
+                return;
+            }
 
             MusicCoverImage.Source = bitmap;
             MusicCoverImage.Visibility = Visibility.Visible;
