@@ -844,10 +844,14 @@ public sealed partial class IslandShell : UserControl
         }
     }
 
-    /// <summary>收起态胶囊显示什么：计时优先 > 音乐 > 时钟。</summary>
+    /// <summary>
+    /// 收起态胶囊显示什么：计时优先 > 音乐 > 时钟。
+    /// 这里看「占用」(<see cref="TimeToolsViewModel.HasMonitorActivity"/>) 而不是「要不要刷新」
+    /// (<see cref="TimeToolsViewModel.NeedsClock"/>)：暂停的计时仍然是胶囊内容，不能被音乐顶掉。
+    /// </summary>
     private void UpdatePillContent()
     {
-        var showMusic = _musicAvailable && !_timeTools.NeedsClock;
+        var showMusic = _musicAvailable && !_timeTools.HasMonitorActivity;
 
         Clock.Visibility = showMusic ? Visibility.Collapsed : Visibility.Visible;
         MusicPill.Visibility = showMusic ? Visibility.Visible : Visibility.Collapsed;
