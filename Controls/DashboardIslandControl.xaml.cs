@@ -873,7 +873,7 @@ public sealed partial class DashboardIslandControl : UserControl
     {
         _dropPending = true;
         DropArchiveIcon.Visibility = Visibility.Visible;
-        SetDropState("松开以解压", "支持 .zip（其它格式后续再加）", showProgress: false, showActions: false);
+        SetDropState("松开以解压", ArchiveExtractor.SupportedFormatsText, showProgress: false, showActions: false);
 
         // 关键：**不走过场**。以前这里是 SwitchTo(Drop)（push/pop 淡入淡出），
         // 拖进来的第一眼会先看到指标视图（旧视图淡出），然后再淡入落点区 ——
@@ -909,7 +909,7 @@ public sealed partial class DashboardIslandControl : UserControl
         if (archive is null)
         {
             KeepExpandedChanged?.Invoke(true);
-            SetDropState("不支持这个格式", "目前只支持 .zip，7z / rar 之后再加", showProgress: false, showActions: true, error: true);
+            SetDropState("不支持这个格式", $"支持：{ArchiveExtractor.SupportedFormatsText}", showProgress: false, showActions: true, error: true);
             Diagnostics.Log("drop: unsupported file");
             return;
         }
@@ -928,11 +928,11 @@ public sealed partial class DashboardIslandControl : UserControl
 
         KeepExpandedChanged?.Invoke(true);
         SetDropState("解压中…", $"{Path.GetFileName(archive)}  →  {destination}", showProgress: true, showActions: false);
-        DropProgress.Value = 0;
+        ApplyDropProgress(0);
 
         try
         {
-            var progress = new Progress<double>(value => DropProgress.Value = value);
+            var progress = new Progress<double>(value => ApplyDropProgress(value));
             var result = await ArchiveExtractor.ExtractAsync(archive, destination, progress);
 
             _lastExtractFolder = result.Destination;
@@ -950,6 +950,21 @@ public sealed partial class DashboardIslandControl : UserControl
         }
     }
 
+    /// <summary>
+    /// 解压进度：0~1 = 确定进度；负值 = 内核给不出进度（tar.exe），切成滚动条。
+    /// </summary>
+    private void ApplyDropProgress(double value)
+    {
+        if (value < 0)
+        {
+            DropProgress.IsIndeterminate = true;
+            return;
+        }
+
+        DropProgress.IsIndeterminate = false;
+        DropProgress.Value = Math.Clamp(value, 0, 1);
+    }
+
     private void SetDropState(string title, string subtitle, bool showProgress, bool showActions, bool canOpenFolder = false, bool error = false)
     {
         DropTitle.Text = title;
@@ -959,6 +974,7 @@ public sealed partial class DashboardIslandControl : UserControl
         DropSubtitle.Foreground = Res(error ? "CriticalTextBrush" : "TextTertiaryBrush");
 
         DropProgress.Visibility = showProgress ? Visibility.Visible : Visibility.Collapsed;
+        DropProgress.IsIndeterminate = false;
         DropActions.Visibility = showActions ? Visibility.Visible : Visibility.Collapsed;
         DropOpenFolderButton.Visibility = canOpenFolder ? Visibility.Visible : Visibility.Collapsed;
         DropCloseButton.Content = canOpenFolder ? "完成" : "关闭";
@@ -1001,11 +1017,11 @@ public sealed partial class DashboardIslandControl : UserControl
         KeepExpandedChanged?.Invoke(true);
         ShowDropZone();
         SetDropState("解压中…", $"{Path.GetFileName(archivePath)}  →  {destination}", showProgress: true, showActions: false);
-        DropProgress.Value = 0;
+        ApplyDropProgress(0);
 
         try
         {
-            var progress = new Progress<double>(value => DropProgress.Value = value);
+            var progress = new Progress<double>(value => ApplyDropProgress(value));
             var result = await ArchiveExtractor.ExtractAsync(archivePath, destination, progress);
             _lastExtractFolder = result.Destination;
             SetDropState("解压完成", $"→ {result.Destination} · {result.FileCount} 个文件", showProgress: false, showActions: true, canOpenFolder: true);

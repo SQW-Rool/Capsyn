@@ -42,7 +42,7 @@
   上一个稳定版：tag `v4.0.0-beta`。
 * 这一版包含：时间工具（正计时 / 倒计时 / 闹钟）、收起后的顶部监测区（含第二块独立小圆岛）、
   设置页的铃声板块（5+5 内置音效 + 自定义音频）、到点提醒面板，以及**拖拽解压**
-  （把 `.zip` 拖到岛上 → 原生选目录 → 解压）。详见第七节的 `v5.0.0-NewFeatures` 条目。
+  （把压缩包拖到岛上 → 原生选目录 → 解压；支持 .zip / .7z / .rar / .tar / .tar.gz / .xz / .bz2）。详见第七节。
 * 「拖拽一开始就自动出现落点区」的**实验**做过三轮（WinEvent / 鼠标钩子 / 透明接收区），
   因安全前提下无法同时满足“即时 + 只认 zip + 零误触发”，已撤掉并删除实验分支，代码回到本版行为。
 * **已实现**：时间岛胶囊（时钟 / 监测区，宽度会随占用变化）；看板岛（指标 / 时间工具 / 设置 / 到点提醒
@@ -522,7 +522,7 @@ DashboardIslandControl.OnCloseClick
 | 接收拖放 | `IslandShell.xaml` 的 `ShellRoot`（`AllowDrop` + `DragOver/DragLeave/Drop`） | OLE 拖放只在光标进入岛窗口时通知；`DragLeave` 给 350ms 宽限，光标从胶囊挪到落点区时不会闪 |
 | 落点 UI | `DashboardIslandControl.xaml` 的 `DropPanel` | 虚线框 = `Rectangle` + `StrokeDashArray="4 3"` + 圆角；状态：`松开以解压` → `解压中…`（进度条）→ `解压完成` / `不支持这个格式` / `解压失败`；**这一页不显示右下角页脚（设置 / 关闭程序）和中间那条横线** —— 页脚/横线的可见性在 `SwitchTo` 里、**瞬切分支之前**设好（早期放在瞬切之后，导致解压岛上横着一条线） |
 | 选择目录 | `Services/FolderPicker.cs` | 手写 COM 互操作走 `IFileOpenDialog` + `FOS_PICKFOLDERS`：WinRT 的 `FolderPicker` **没法指定默认路径**，而「默认压缩包所在目录」正是这个功能的重点，所以用 `SetFolder()` |
-| 解压 | `Services/ArchiveExtractor.cs` | .NET 自带 `ZipArchive`（不引第三方库）；后台线程、按字节算进度；**防 zip-slip**（`..` / 绝对路径的条目直接跳过）；目标里已有同名文件时**不覆盖**，自动落到 `压缩包名\` 子目录，并在结果里注明 |
+| 解压 | `Services/ArchiveExtractor.cs` | **零第三方库、零打包二进制的双内核**：<br>• `.zip` → .NET 自带 `ZipArchive`（逐条解压、按字节精确进度、挡 zip-slip）；<br>• `.7z / .rar / .tar / .tar.gz / .tgz / .xz / .bz2` → **系统自带 `C:\Windows\System32\tar.exe`（bsdtar + libarchive）**，不往包里塞任何东西，但只有“不确定进度”（UI 用滚动条）；<br>两种情况都：后台线程、**重名不覆盖**（自动落到 `压缩包名\` 子目录并在结果里注明）、解完只统计本包内的文件 |
 | 保持展开 | `IslandShell._keepExpanded` | 拖拽中 / 解压中 / 结果没确认之前都不收起（和到点提醒的 `_alertActive` 同一套路） |
 
 **调试钩子**：`CAPSYN_DROP_TEST=<zip 路径>` 跳过真实拖拽与选目录，直接走「落点区 → 进度 → 结果」
@@ -895,6 +895,18 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     ⑤ 新增调试钩子 `CAPSYN_DROP_TEST=<zip>`、`CAPSYN_PICK_TEST=1`（OLE 拖放没法脚本模拟，用它做自动验证）；
     ⑥ 实测：解压中文文件名正常、同名冲突自动进子目录（`escaped=True`）、点「完成」回到指标视图并收起、
     `capsyn-crash.log` 为空。
+  * `v5.1.0-ExtractionKernels`（**工作区改动，未打 tag**）—— **解压内核扩展：支持 7z / rar / tar**：
+    ① `.zip` 继续用 .NET 自带 `ZipArchive`（逐条解压、精确进度、挡 zip-slip）；
+    ② 新增 `.7z / .rar / .tar / .tar.gz / .tgz / .tar.xz / .txz / .tar.bz2 / .tbz2 / .gz / .xz / .bz2 / .zst / .cab`
+    等格式：走**系统自带 `C:\Windows\System32\tar.exe`（bsdtar + libarchive）**——
+    实测 `bsdtar 3.8.9` 能 `tar -tf` / `tar -xf` 真实的 `.7z` 文件；
+    **不打包任何二进制、不加 NuGet 依赖**，代价是没有细粒度进度（进度条切成不确定态）；
+    ③ 重名不覆盖 / 解到 `压缩包名\` 子目录的逻辑两种内核共用；tar 的文件数按 `tar -tf` 清单核对，
+    不会把目标目录里原有的文件算进去；
+    ④ 落点区文案改为 `支持 .zip / .7z / .rar / .tar / .tar.gz / .xz / .bz2`；
+    ⑤ 实测（`CAPSYN_DROP_TEST`）：`sample.zip` 走 `unzip(zip)` 1 个文件 16 B、
+    `sample.7z` 走 `unzip(tar)` 1 个文件 2844 B、`sample.tar.gz` 冲突时自动进 `sample\` 子目录，
+    均显示「解压完成 + 路径 + 文件数」，无崩溃。
 
 
 ---
