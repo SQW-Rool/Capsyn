@@ -38,14 +38,13 @@
 
 ### 当前版本状态（快照）
 
-* **GitHub Latest（稳定推荐）**：tag **`v4.0.0-beta`** —— 时间工具 / 顶部监测区 / 铃声 / 到点提醒，
-  不含拖拽解压，行为最稳；网站首屏主按钮和 `releases/latest` 都指向它。
-* **新功能版**：tag `v5.0.0-NewFeatures` —— 在 4.0.0 基础上加拖拽解压（`.zip`），已作为正式版发布但不是 Latest。
-* **预发行 / 测试版**：tag `v5.1.0-ExtractionKernels` —— 解压内核扩展到 `.7z / .rar / .tar / .tar.gz / .xz / .bz2`
-  等格式并加了进度条（GitHub 上标为 Pre-release）。详见第七节。
-* **进行中（分支 `feature/music-control`，未打 tag）**：音乐控制 —— **播放开始时收起态胶囊直接变成音乐胶囊**（♪ 歌名 + 状态），
-  鼠标移上去展开后是「**看板在左 + 音乐副岛在右**」两块；支持播放暂停 / 上一首 / 下一首（对着汽水音乐实测通过）。
-  详见「三、关键实现点 → 音乐控制」。
+* **GitHub Latest（稳定推荐）**：tag **`v5.1.0-ExtractionKernels`** —— 时间工具 / 顶部监测区 / 铃声 / 到点提醒 / 拖拽解压（`.zip`），
+  并把解压内核扩展到 `.7z / .rar / .tar / .tar.gz / .xz / .bz2` 且带进度条；网站首屏主按钮和 `releases/latest` 都指向它。
+* **稳定版（功能向）**：tag `v5.0.0-NewFeatures` —— 在 4.0.0 基础上加拖拽解压（`.zip`），同样标记为非 Pre-release。
+* **旧版**：tag `v4.0.0-beta` —— 仅保留历史，不再推荐。
+* **预发行 / 测试版（音乐岛）**：tag `v6.0.0-music-beta` —— 音乐控制（对着汽水音乐实测）：播放时收起态胶囊变成音乐胶囊，
+  悬停展开是「看板在左 + 音乐副岛在右」（支持播放 / 暂停 / 上一首 / 下一首）；资源监测页重做为环形仪表 + 网络行；
+  并修复了「正计时 / 倒计时暂停后胶囊被音乐顶掉」的问题。GitHub 上标为 Pre-release。详见「三、关键实现点 → 音乐控制」。
 * 「拖拽一开始就自动出现落点区」的**实验**做过三轮（WinEvent / 鼠标钩子 / 透明接收区），
   因安全前提下无法同时满足“即时 + 只认 zip + 零误触发”，已撤掉并删除实验分支，代码回到本版行为。
 * **已实现**：时间岛胶囊（时钟 / 监测区，宽度会随占用变化）；看板岛（指标 / 时间工具 / 设置 / 到点提醒
@@ -903,7 +902,7 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     ⑥ 期间修掉的问题：NuGet 兜底目录不存在导致 `MSB4018`、本机缺 .NET 9 运行时（`RollForward=Major`）、
     `Resources["CardBorder"]` 抛异常、单例静态初始化顺序 NRE、崩溃日志只写外层异常；
     ⑦ 调试钩子：`CAPSYN_DIAG` / `CAPSYN_ALARM_TEST` / `CAPSYN_COUNTDOWN_TEST` / `CAPSYN_BACKDROP`。
-  * `v5.0.0-NewFeatures`（**当前发布版本**：`main` + tag，Release 已标 Latest）—— **拖拽解压**：
+  * `v5.0.0-NewFeatures`（**稳定版**：`main` + tag，Release 非 Pre-release、非 Latest）—— **拖拽解压**：
     ① 把 `.zip` 拖到胶囊上 → 岛**一次性直接长成解压岛** + 下方出现**虚线落点区**
     （新视图 `DashboardView.Drop`，高 230，收起了右下角页脚和中间横线，只有虚线框 + 图标 + 文字）；
     ①' 只有把文件**拖到岛上**才会显示：做过两版"全局探测"（鼠标钩子 + 透明接收区）都撤掉了 ——
@@ -919,7 +918,7 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     ⑤ 新增调试钩子 `CAPSYN_DROP_TEST=<zip>`、`CAPSYN_PICK_TEST=1`（OLE 拖放没法脚本模拟，用它做自动验证）；
     ⑥ 实测：解压中文文件名正常、同名冲突自动进子目录（`escaped=True`）、点「完成」回到指标视图并收起、
     `capsyn-crash.log` 为空。
-  * `v5.1.0-ExtractionKernels`（**当前发布版本**：`main` + tag + Release asset）—— **解压内核扩展：支持 7z / rar / tar**：
+  * `v5.1.0-ExtractionKernels`（**GitHub Latest**：tag + Release asset）—— **解压内核扩展：支持 7z / rar / tar**：
     ① `.zip` 继续用 .NET 自带 `ZipArchive`（逐条解压、精确进度、挡 zip-slip）；
     ② 新增 `.7z / .rar / .tar / .tar.gz / .tgz / .tar.xz / .txz / .tar.bz2 / .tbz2 / .gz / .xz / .bz2 / .zst / .cab`
     等格式：走**系统自带 `C:\Windows\System32\tar.exe`（bsdtar + libarchive）**——
@@ -932,7 +931,7 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     ⑤ 实测（`CAPSYN_DROP_TEST`）：`sample.zip` 走 `unzip(zip)` 1 个文件 16 B、
     `sample.7z` 走 `unzip(tar)` 1 个文件 2844 B、`sample.tar.gz` 冲突时自动进 `sample\` 子目录，
     均显示「解压完成 + 路径 + 文件数」，无崩溃。
-  * `v5.2.0-MusicControl`（**分支 `feature/music-control`，未打 tag**）—— **音乐控制**：
+  * `v6.0.0-music-beta`（**预发行 · 测试版**：tag `v6.0.0-music-beta` + Release asset）—— **音乐控制 / 音乐岛**：
     ① 新增 `Services/MediaMonitor.cs`：订阅系统媒体会话（SMTC），拿到歌名 / 歌手 / 专辑 / 封面 / 播放状态 / 时长，
     并把播放暂停 / 上一首 / 下一首发回去（`TryTogglePlayPauseAsync` / `TrySkipNextAsync` / `TrySkipPreviousAsync`）；
     ② **收起态胶囊变成音乐胶囊**（`♪ 歌名` + 播放/暂停状态）；展开态是「看板在左 + **音乐副岛在右**」（副岛 340×210，`MusicSideWidth/MusicSideHeight/MusicSideGap`，出现时看板整体左移让整组居中；窗口区域变成 胶囊∪小圆∪看板∪副岛，改完窗口画布宽约 1012）；
@@ -945,6 +944,9 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     把属性元素放到最前面即可（这次排查花了不少时间，记下来避免以后再踩）；
     ⑥ 线程：SMTC 事件统一编组到 UI 线程；会话消失 / COM 异常时自动重连；
     ⑦ 实测（对着汽水音乐）：收起态胶囊显示 `♪ Shark`；展开后看板在左、副岛在右（区域 904×396）；副岛播放暂停 / 下一首 / 上一首全部 `ok=True`，
+    ⑧ 另含：资源监测页重做为「环形仪表（CPU / 内存）+ 整行网络 + 时间工具入口」；
+    ⑨ 修复：正计时 / 倒计时**暂停后胶囊被音乐胶囊顶掉**（判断改用 `HasMonitorActivity`，暂停的计时仍占胶囊）；
+    ⑩ 打包：自包含 publish（`--self-contained true -p:WindowsAppSDKSelfContained=true`）→ 82 MB portable zip + `.sha256`。
     下一首切到 `清空 - 袁小葳, 阿辰`、上一首回到 `Shark`，无崩溃。UIA 路线实测不可行（汽水音乐是 Chromium 壳，UIA 树只有 2 个元素）。
 
 
