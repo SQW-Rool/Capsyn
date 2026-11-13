@@ -185,10 +185,34 @@ public static class ArchiveExtractor
         var target = escape ? MakeUniqueDirectory(Path.Combine(destination, BaseNameOf(archivePath))) : destination;
         Directory.CreateDirectory(target);
 
-        // 这条内核没有细粒度进度：先告诉 UI "不确定"，解完再给 1。
-        progress?.Report(-1);
+        // tar.exe 本身不给百分比，但我们知道"这个包里有多少个文件"，
+        // 所以解压期间**轮询目标目录**数文件 → 得到真实进度（不需要打包任何东西）。
+        var baseline = SnapshotFiles(target);
+        var totalFiles = Math.Max(1, listing.Count);
+        var lastLoggedDecile = -1;
 
-        RunTar($"-xf \"{archivePath}\" -C \"{target}\"", cancellationToken, throwOnError: true);
+        progress?.Report(0);
+
+        RunTar(
+            $"-xf \"{archivePath}\" -C \"{target}\"",
+            cancellationToken,
+            throwOnError: true,
+            onPoll: () =>
+            {
+                var done = CountNewFiles(target, baseline);
+                var percent = Math.Min(0.99, (double)done / totalFiles);
+                progress?.Report(percent);
+
+                if (Diagnostics.IsEnabled)
+                {
+                    var decile = (int)(percent * 10);
+                    if (decile != lastLoggedDecile)
+                    {
+                        lastLoggedDecile = decile;
+                        Diagnostics.Log($"unzip(tar) 进度: {done}/{totalFiles} 文件 ({percent:P0})");
+                    }
+                }
+            });
 
         progress?.Report(1.0);
 
@@ -220,8 +244,13 @@ public static class ArchiveExtractor
 
     /// <summary>
     /// 跑一次 tar.exe（隐藏窗口、不弹控制台），返回 stdout 行。失败时抛异常（带上 stderr）。
+    /// <paramref name="onPoll"/>：解压期间每 ~150ms 回调一次，用来算进度。
     /// </summary>
-    private static List<string> RunTar(string arguments, CancellationToken cancellationToken, bool throwOnError)
+    private static List<string> RunTar(
+        string arguments,
+        CancellationToken cancellationToken,
+        bool throwOnError,
+        Action? onPoll = null)
     {
         if (!File.Exists(TarExecutable))
         {
@@ -259,7 +288,7 @@ public static class ArchiveExtractor
         var stderr = string.Empty;
         var stderrTask = Task.Run(() => stderr = process.StandardError.ReadToEnd(), cancellationToken);
 
-        while (!process.WaitForExit(50))
+        while (!process.WaitForExit(150))
         {
             if (cancellationToken.IsCancellationRequested)
             {
@@ -274,8 +303,11 @@ public static class ArchiveExtractor
 
                 cancellationToken.ThrowIfCancellationRequested();
             }
+
+            onPoll?.Invoke();
         }
 
+        onPoll?.Invoke();
         Task.WaitAll(stdoutTask, stderrTask);
 
         if (throwOnError && process.ExitCode != 0)
@@ -285,6 +317,54 @@ public static class ArchiveExtractor
         }
 
         return output;
+    }
+
+    /// <summary>目标目录当前有哪些文件（解压前的快照，用来区分"新解出来的"）。</summary>
+    private static HashSet<string> SnapshotFiles(string root)
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            if (!Directory.Exists(root))
+            {
+                return result;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+            {
+                result.Add(file);
+            }
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Log($"unzip: 快照目标目录失败（忽略）：{ex.Message}");
+        }
+
+        return result;
+    }
+
+    /// <summary>目标目录里比快照多出来的文件数（= 已经解出来的文件数）。</summary>
+    private static int CountNewFiles(string root, HashSet<string> baseline)
+    {
+        try
+        {
+            var count = 0;
+
+            foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+            {
+                if (!baseline.Contains(file))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+        catch (Exception)
+        {
+            return 0;
+        }
     }
 
     // ---------------- 公共辅助 ----------------
