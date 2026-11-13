@@ -70,7 +70,7 @@ public sealed class IslandOptions
     public double ExpandedDropHeight { get; init; } = 230;
 
     /// <summary>看板高度（DIP）：音乐控制视图（封面 + 歌名/歌手 + 进度 + 播放控制）。</summary>
-    public double ExpandedMusicHeight { get; init; } = 250;
+    public double ExpandedMusicHeight { get; init; } = 268;
 
 
     /// <summary>所有视图里最大的看板高度：窗口画布和回弹余量都按它算。</summary>

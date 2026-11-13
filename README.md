@@ -550,7 +550,7 @@ DashboardIslandControl.OnCloseClick
 | 控制 | `TryTogglePlayPauseAsync` / `TrySkipNextAsync` / `TrySkipPreviousAsync`（返回 false 就禁用对应按钮） |
 | 进度 | SMTC 只给「某一刻的位置」，`EstimatePosition()` 在播放中按经过时间插值；音乐视图可见时用 250ms 定时器刷新进度条与时间文字（隐藏时停表） |
 | 封面 | `Thumbnail.OpenReadAsync()` → `byte[]` → UI 线程转 `BitmapImage`；换歌才重新读（按「歌名\|歌手」缓存 key） |
-| UI | 新视图 `DashboardView.Music`（高度 250，无页脚 / 无横线）：返回 + 封面 + 歌名 + 歌手 + 进度 + 上一首 / 播放暂停 / 下一首；空状态显示「没有正在播放的媒体」；指标页底部多一颗「♪ 歌名」入口（**没有媒体会话时整颗按钮隐藏**） |
+| UI | 新视图 `DashboardView.Music`（高度 268，无页脚 / 无横线）：<br>• **专辑封面铺满面板做背景光晕**（低透明度 + 黑色渐变遮罩，毛玻璃观感，不引额外依赖）；<br>• 左侧 132×132 圆角封面（带 `ThemeShadow` 软阴影），右侧歌名 24px / 歌手 / 进度条 / 时间；<br>• 控制区：40px 上一首 + **54px 主色圆形播放暂停** + 40px 下一首，整行居中；<br>• 头部「正在播放」旁边是 **4 根 Composition 均衡器**（播放时错峰跳动、暂停即停）；<br>• 空状态显示「没有正在播放的媒体」；指标页底部多一颗「♪ 歌名」入口（没有媒体会话时整颗按钮隐藏） |
 | 实测 | 汽水音乐正在播放时：UI 读到 `Shark / 小恒 / 0:04 / 2:25 / 汽水音乐`；点播放暂停 → `ok=True` 且状态真的翻转；下一首 → 歌变成 `清空 - 袁小葳, 阿辰`；上一首 → 回到 `Shark`；无崩溃 |
 
 **调试钩子**：`CAPSYN_MUSIC_TEST=1` 启动后自动展开看板并切到音乐视图（截图 / 自动验证用）。
@@ -931,9 +931,11 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
   * `v5.2.0-MusicControl`（**分支 `feature/music-control`，未打 tag**）—— **音乐控制**：
     ① 新增 `Services/MediaMonitor.cs`：订阅系统媒体会话（SMTC），拿到歌名 / 歌手 / 专辑 / 封面 / 播放状态 / 时长，
     并把播放暂停 / 上一首 / 下一首发回去（`TryTogglePlayPauseAsync` / `TrySkipNextAsync` / `TrySkipPreviousAsync`）；
-    ② 新增看板视图 `Music`（高度 250，`IslandOptions.ExpandedMusicHeight`）：封面 + 歌名 + 歌手 + 进度条 + 三个控制按钮，
+    ② 新增看板视图 `Music`（高度 268，`IslandOptions.ExpandedMusicHeight`）：**专辑封面铺满做背景光晕** + 132 圆角封面（软阴影）+ 歌名/歌手 + 进度条 + 居中控制按钮（54px 主色圆形播放键），
     空状态显示「没有正在播放的媒体」；指标页多一颗「♪ 歌名」入口（没有会话时隐藏）；
-    ③ 进度用「某一刻位置 + 经过时间」插值，音乐视图可见时 250ms 刷新、隐藏即停表；
+    ③ 进度用「某一刻位置 + 经过时间」插值，音乐视图可见时 250ms 刷新、隐藏即停表；头部有 **Composition 均衡器**（播放时跳动）；
+    ③' 踩坑记录：WinUI 的 XAML 编译器对「Grid.RowDefinitions 出现在子元素之后」会**静默崩溃**（exit 1、无任何错误信息），
+    把属性元素放到最前面即可（这次排查花了不少时间，记下来避免以后再踩）；
     ④ 线程：SMTC 事件统一编组到 UI 线程；会话消失 / COM 异常时自动重连；
     ⑤ 实测（对着汽水音乐，`CAPSYN_MUSIC_TEST=1`）：UI 读到 `Shark / 小恒 / 汽水音乐`，点播放暂停 `ok=True` 且状态翻转，
     下一首切到 `清空 - 袁小葳, 阿辰`、上一首回到 `Shark`，无崩溃。UIA 路线实测不可行（汽水音乐是 Chromium 壳，UIA 树只有 2 个元素）。

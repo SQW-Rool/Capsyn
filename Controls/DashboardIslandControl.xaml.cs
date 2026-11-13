@@ -712,6 +712,19 @@ public sealed partial class DashboardIslandControl : UserControl
 
         MusicSourceText.Text = snapshot.IsAvailable ? snapshot.SourceApp : string.Empty;
 
+        MusicStateText.Text = snapshot.IsAvailable
+            ? (snapshot.IsPlaying ? "正在播放" : "已暂停")
+            : "没有正在播放";
+
+        if (snapshot.IsAvailable && snapshot.IsPlaying)
+        {
+            StartEqualizer();
+        }
+        else
+        {
+            StopEqualizer();
+        }
+
         MusicPlayPauseButton.IsEnabled = snapshot.IsAvailable;
         MusicPreviousButton.IsEnabled = snapshot.IsAvailable && snapshot.CanSkipPrevious;
         MusicNextButton.IsEnabled = snapshot.IsAvailable && snapshot.CanSkipNext;
@@ -738,6 +751,8 @@ public sealed partial class DashboardIslandControl : UserControl
             MusicCoverImage.Source = null;
             MusicCoverImage.Visibility = Visibility.Collapsed;
             MusicCoverPlaceholder.Visibility = Visibility.Visible;
+            MusicBackdropImage.Source = null;
+            MusicBackdropLayer.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -766,6 +781,10 @@ public sealed partial class DashboardIslandControl : UserControl
             MusicCoverImage.Source = bitmap;
             MusicCoverImage.Visibility = Visibility.Visible;
             MusicCoverPlaceholder.Visibility = Visibility.Collapsed;
+
+            // 同一张封面铺满面板做背景光晕（低透明度 + 黑色渐变遮罩，看起来像毛玻璃）。
+            MusicBackdropImage.Source = bitmap;
+            MusicBackdropLayer.Visibility = Visibility.Visible;
         }
         catch (Exception ex)
         {
@@ -810,6 +829,62 @@ public sealed partial class DashboardIslandControl : UserControl
 
     private static string FormatMediaTime(TimeSpan value)
         => value.TotalHours >= 1 ? value.ToString(@"h\:mm\:ss") : value.ToString(@"m\:ss");
+
+    // ---------------- 均衡器动画（播放时跳、暂停时停） ----------------
+
+    /// <summary>均衡器是否正在跑（避免每帧重复 StartAnimation）。</summary>
+    private bool _equalizerRunning;
+
+    private void StartEqualizer()
+    {
+        if (_equalizerRunning)
+        {
+            return;
+        }
+
+        _equalizerRunning = true;
+        MusicEqualizer.Visibility = Visibility.Visible;
+
+        var bars = new[] { MusicEq1, MusicEq2, MusicEq3, MusicEq4 };
+
+        for (var i = 0; i < bars.Length; i++)
+        {
+            var bar = bars[i];
+            var visual = ElementCompositionPreview.GetElementVisual(bar);
+
+            // 以底边中点为缩放锚点，柱子只往上长。
+            visual.CenterPoint = new Vector3((float)bar.Width / 2f, (float)bar.Height, 0f);
+
+            var animation = visual.Compositor.CreateScalarKeyFrameAnimation();
+            animation.InsertKeyFrame(0f, 0.25f);
+            animation.InsertKeyFrame(0.5f, 1f);
+            animation.InsertKeyFrame(1f, 0.45f);
+            animation.Duration = TimeSpan.FromMilliseconds(560 + (i * 130));
+            animation.IterationBehavior = AnimationIterationBehavior.Forever;
+
+            visual.StartAnimation("Scale.Y", animation);
+        }
+    }
+
+    private void StopEqualizer()
+    {
+        if (!_equalizerRunning)
+        {
+            MusicEqualizer.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        _equalizerRunning = false;
+
+        foreach (var bar in new[] { MusicEq1, MusicEq2, MusicEq3, MusicEq4 })
+        {
+            var visual = ElementCompositionPreview.GetElementVisual(bar);
+            visual.StopAnimation("Scale.Y");
+            visual.Scale = Vector3.One;
+        }
+
+        MusicEqualizer.Visibility = Visibility.Collapsed;
+    }
 
     private void OnMetricsMusicClick(object sender, RoutedEventArgs e)
     {
