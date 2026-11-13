@@ -67,6 +67,7 @@ public sealed partial class IslandShell : UserControl
 
     private double _musicSlide;
     private double _musicDashLeftDip;
+    private double _musicSideHeightDip;
     private double _musicSideLeftDip;
 
     /// <summary>胶囊宽度的目标值（弹簧没有 getter，单独记一份用于去重）。</summary>
@@ -235,7 +236,7 @@ public sealed partial class IslandShell : UserControl
         ElementCompositionPreview.SetIsTranslationEnabled(MusicIsland, true);
         ElementCompositionPreview.SetIsTranslationEnabled(MusicPill, true);
 
-        ApplyMusicSlide(0);
+        ApplyMusicSlide(0, _panelWidthDip, _panelHeightDip);
 
         // 如果启动时已经有计时在跑（比如秒表跨了一次 Unloaded），把 tick 接上。
         SyncTimeToolsTimer();
@@ -707,7 +708,7 @@ public sealed partial class IslandShell : UserControl
 
         if (_musicSlide > 0.02)
         {
-            height = Math.Max(height, _options.MusicSideHeight);
+            height = Math.Max(height, _musicSideHeightDip);
             rightDip = Math.Max(rightDip, _musicSideLeftDip + _options.MusicSideWidth);
         }
 
@@ -844,31 +845,34 @@ public sealed partial class IslandShell : UserControl
     }
 
     /// <summary>
-    /// 按滑出进度摆两块岛：看板从居中位置往左移，副岛从看板后面往右滑出来。
-    /// <paramref name="slide"/> 0 = 看板居中、副岛完全藏在看板后面；1 = 看板左移、副岛滑到右侧。
+    /// 按滑出进度摆两块岛。左边距始终 = 「当前宽度居中 − 滑出偏移」，
+    /// 这样收起（面板宽度缩回胶囊）时也是对称往中间收，不会停在偏移位置。
+    /// <paramref name="slide"/> 0 = 看板居中、副岛藏在看板后面；1 = 看板左移、副岛滑到右侧且与看板等高。
     /// </summary>
-    private void ApplyMusicSlide(double slide)
+    private void ApplyMusicSlide(double slide, double panelWidth, double panelHeight)
     {
         slide = Math.Clamp(slide, 0.0, 1.0);
 
-        var shift = (_options.MusicSideWidth + _options.MusicSideGap) / 2.0;
+        var shift = ((_options.MusicSideWidth + _options.MusicSideGap) / 2.0) * slide;
 
-        // 看板：居中 → 左移半个副岛宽
-        _musicDashLeftDip = ((_options.WindowWidth - _options.ExpandedWidth) / 2.0) - (shift * slide);
+        // 看板：始终以「当前宽度」居中，再减去滑出偏移
+        _musicDashLeftDip = ((_options.WindowWidth - panelWidth) / 2.0) - shift;
 
-        // 副岛：起点藏在看板后面（起点右边缘 = 看板左移后的右边缘），终点在「看板 + 缝隙」右侧
-        var finalSideLeft = ((_options.WindowWidth - _options.ExpandedGroupWidth) / 2.0)
-            + _options.ExpandedWidth
-            + _options.MusicSideGap;
-        var hiddenSideLeft = finalSideLeft - (_options.MusicSideWidth + _options.MusicSideGap);
-        _musicSideLeftDip = hiddenSideLeft + ((finalSideLeft - hiddenSideLeft) * slide);
+        // 副岛：贴着看板右边缘 + 缝隙；slide=0 时整体藏到看板后面
+        var gap = _options.MusicSideGap;
+        var sideWidth = _options.MusicSideWidth;
+        var finalSideLeft = _musicDashLeftDip + panelWidth + gap;
+        _musicSideLeftDip = finalSideLeft - ((sideWidth + gap) * (1.0 - slide));
+
+        // 副岛与看板等高（跟着当前看板高度走，展开/收起都对齐）
+        _musicSideHeightDip = Math.Max(panelHeight, 0);
 
         Dashboard.HorizontalAlignment = HorizontalAlignment.Left;
         Dashboard.Margin = new Thickness(_musicDashLeftDip, _options.PanelTop, 0, 0);
-        Dashboard.UpdatePanelHeight(_panelHeightDip);
+        Dashboard.UpdatePanelHeight(panelHeight);
 
-        MusicIsland.Width = _options.MusicSideWidth;
-        MusicIsland.Height = _options.MusicSideHeight;
+        MusicIsland.Width = sideWidth;
+        MusicIsland.Height = _musicSideHeightDip;
         MusicIsland.Margin = new Thickness(_musicSideLeftDip, _options.PanelTop, 0, 0);
         MusicIsland.Visibility = slide > 0.01 ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -889,7 +893,7 @@ public sealed partial class IslandShell : UserControl
         ShapeProgress?.Invoke(new IslandShapeSnapshot(
             pillLeft, pillWidth, dotLeft, _options.DotSize, dotProgress,
             _musicDashLeftDip, panelWidth, panelHeight,
-            _musicSideLeftDip, musicSide ? _options.MusicSideWidth : 0, _options.MusicSideHeight, musicSide ? _musicSlide : 0.0,
+            _musicSideLeftDip, musicSide ? _options.MusicSideWidth : 0, _musicSideHeightDip, musicSide ? _musicSlide : 0.0,
             progress));
     }
 
@@ -930,7 +934,7 @@ public sealed partial class IslandShell : UserControl
             _options.SpringPeriod.TotalSeconds);
         _musicSlideSpring.Advance(deltaSeconds);
         _musicSlide = Math.Clamp(_musicSlideSpring.Value, 0.0, 1.0);
-        ApplyMusicSlide(_musicSlide);
+        ApplyMusicSlide(_musicSlide, panelWidth, panelHeight);
 
         _pillLeftDip = pillLeft;
         _pillWidthDip = pillWidth;
