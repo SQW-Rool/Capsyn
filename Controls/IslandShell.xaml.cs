@@ -545,6 +545,7 @@ public sealed partial class IslandShell : UserControl
         {
             case nameof(TimeToolsViewModel.NeedsClock):
                 SyncTimeToolsTimer();
+                UpdatePillContent();
                 break;
 
             case nameof(TimeToolsViewModel.SecondaryActivity):
@@ -830,18 +831,26 @@ public sealed partial class IslandShell : UserControl
         var wasAvailable = _musicAvailable;
         _musicAvailable = snapshot.IsAvailable;
 
-        // 收起态的胶囊：有歌 → 显示 ♪ 歌名，隐藏时钟；没歌 → 恢复时钟。
-        Clock.Visibility = _musicAvailable ? Visibility.Collapsed : Visibility.Visible;
-        MusicPill.Visibility = _musicAvailable ? Visibility.Visible : Visibility.Collapsed;
-
         MusicPillTitle.Text = snapshot.IsAvailable ? snapshot.Title : string.Empty;
         MusicPillState.Text = snapshot.IsAvailable && !snapshot.IsPlaying ? "已暂停" : string.Empty;
+
+        // 收起态胶囊：计时/闹钟在跑时优先显示计时，不被音乐顶掉。
+        UpdatePillContent();
 
         if (wasAvailable != _musicAvailable)
         {
             StartShapeSync();
             Diagnostics.Log($"music island: {( _musicAvailable ? "出现" : "收起")}");
         }
+    }
+
+    /// <summary>收起态胶囊显示什么：计时优先 > 音乐 > 时钟。</summary>
+    private void UpdatePillContent()
+    {
+        var showMusic = _musicAvailable && !_timeTools.NeedsClock;
+
+        Clock.Visibility = showMusic ? Visibility.Collapsed : Visibility.Visible;
+        MusicPill.Visibility = showMusic ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>
