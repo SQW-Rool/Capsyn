@@ -44,11 +44,58 @@
             HorizontalAlignment="Center"
             VerticalAlignment="Top" />
 
+        <!-- 3.5) 音乐胶囊内容：音乐播放时盖在胶囊位置（时钟隐藏），显示 ♪ 歌名 -->
+        <StackPanel
+            x:Name="MusicPill"
+            Orientation="Horizontal"
+            Spacing="9"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Height="40"
+            Visibility="Collapsed"
+            IsHitTestVisible="False">
+
+            <Path
+                Width="15"
+                Height="15"
+                Stretch="Uniform"
+                Stroke="{ThemeResource AccentTextBrush}"
+                StrokeThickness="{ThemeResource IconStrokeThickness}"
+                StrokeStartLineCap="Round"
+                StrokeEndLineCap="Round"
+                VerticalAlignment="Center"
+                Data="M 9.5,17.5 A 2.4,2.4 0 1 1 9.49,17.5 M 11.9,17.5 V 6.5 L 18,5 V 15 M 18,15 A 2.4,2.4 0 1 1 17.99,15" />
+
+            <TextBlock
+                x:Name="MusicPillTitle"
+                Text=""
+                FontSize="15"
+                FontWeight="{ThemeResource TypeStrongWeight}"
+                Foreground="{ThemeResource TextPrimaryBrush}"
+                VerticalAlignment="Center"
+                TextTrimming="CharacterEllipsis"
+                MaxWidth="210" />
+
+            <TextBlock
+                x:Name="MusicPillState"
+                Text=""
+                FontSize="12"
+                Foreground="{ThemeResource TextSecondaryBrush}"
+                VerticalAlignment="Center" />
+        </StackPanel>
+
         <!-- 4) 第二个计时的独立小圆岛（左对齐，靠 Translation 摆到胶囊左边） -->
         <controls:TimerDotControl
             x:Name="TimerDot"
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
             Opacity="0" />
+
+        <!-- 5) 音乐副岛：音乐播放时出现在看板右侧（位置由外壳按窗口宽度算） -->
+        <controls:MusicIslandControl
+            x:Name="MusicIsland"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Visibility="Collapsed" />
     </Grid>
 </UserControl>

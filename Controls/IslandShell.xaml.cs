@@ -69,8 +69,11 @@ public sealed partial class IslandShell : UserControl
 
     private IslandAnimator? _panelAnimator;
 
-    /// <summary>系统媒体会话（SMTC）监听：音乐视图的数据来源。</summary>
+    /// <summary>系统媒体会话（SMTC）监听：音乐副岛 + 胶囊内容的数据来源。</summary>
     private MediaMonitor? _media;
+
+    /// <summary>当前有没有可用的媒体会话（决定胶囊内容 & 右侧副岛是否出现）。</summary>
+    private bool _musicAvailable;
     private bool _expanded;
     private bool _shapeSyncRunning;
     private bool _ready;
@@ -187,9 +190,10 @@ public sealed partial class IslandShell : UserControl
             _options.ContentFadeInDuration,
             _options.ContentFadeOutDuration);
 
-        // 音乐：拿到系统媒体会话后注入看板（服务自己会编组回 UI 线程）。
+        // 音乐：拿到系统媒体会话后接给右侧副岛，同时驱动收起态胶囊的内容。
         _media = new MediaMonitor(Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
-        Dashboard.AttachMedia(_media);
+        MusicIsland.AttachMedia(_media);
+        _media.Changed += OnMediaChanged;
         _ = _media.InitializeAsync();
 
         Dashboard.ExitRequested += OnExitRequested;
@@ -216,13 +220,20 @@ public sealed partial class IslandShell : UserControl
         // 胶囊和"第二个计时的小圆"都是靠 Translation 摆位置的（不触发布局）。
         ElementCompositionPreview.SetIsTranslationEnabled(Clock, true);
         ElementCompositionPreview.SetIsTranslationEnabled(TimerDot, true);
+        ElementCompositionPreview.SetIsTranslationEnabled(Dashboard, true);
+        ElementCompositionPreview.SetIsTranslationEnabled(MusicIsland, true);
+        ElementCompositionPreview.SetIsTranslationEnabled(MusicPill, true);
+
+        ApplyMusicLayout();
 
         // 如果启动时已经有计时在跑（比如秒表跨了一次 Unloaded），把 tick 接上。
         SyncTimeToolsTimer();
 
         // 启动即收起态：先把形状同步给窗口区域，再开始监听光标。
         ShapeProgress?.Invoke(new IslandShapeSnapshot(
-            _pillLeftDip, _options.Width, _dotLeftDip, _options.DotSize, 0, _options.Width, 0, 0));
+            _pillLeftDip, _options.Width, _dotLeftDip, _options.DotSize, 0,
+            (_options.WindowWidth - _options.Width) / 2.0, _options.Width, 0,
+            0, 0, 0, 0, 0));
         _hoverTimer.Start();
 
 
@@ -323,8 +334,12 @@ public sealed partial class IslandShell : UserControl
         Clock.PreferredWidthChanged -= OnClockPreferredWidthChanged;
         _dragLeaveTimer.Stop();
 
-        _media?.Dispose();
-        _media = null;
+        if (_media is not null)
+        {
+            _media.Changed -= OnMediaChanged;
+            _media.Dispose();
+            _media = null;
+        }
 
         _dropTestTimer?.Stop();
         _dropTestTimer = null;
@@ -663,12 +678,26 @@ public sealed partial class IslandShell : UserControl
 
         // 展开态：高度取**当前**看板高度（时间工具视图比指标视图高 80），
         // 否则切到工具视图后底部那 80px 会被判成「岛外」，鼠标一移下去就收起。
+        // 有音乐副岛时命中框要扩到「看板 + 副岛」整组，否则鼠标移到副岛上会被判成岛外。
         var height = Math.Max(_panelHeightDip, _options.ExpandedHeight);
 
+        if (_musicAvailable)
+        {
+            height = Math.Max(height, _options.MusicSideHeight);
+        }
+
+        var leftDip = _musicAvailable
+            ? (_options.WindowWidth - _options.ExpandedGroupWidth) / 2.0
+            : (_options.WindowWidth - _options.ExpandedWidth) / 2.0;
+
+        var widthDip = _musicAvailable
+            ? _options.ExpandedGroupWidth
+            : _options.ExpandedWidth;
+
         return new RectInt32(
-            origin.X + (int)Math.Round(((_options.WindowWidth - _options.ExpandedWidth) / 2.0) * scale),
+            origin.X + (int)Math.Round(leftDip * scale),
             origin.Y,
-            (int)Math.Round(_options.ExpandedWidth * scale),
+            (int)Math.Round(widthDip * scale),
             (int)Math.Round((_options.PanelTop + height) * scale));
     }
 
@@ -773,7 +802,55 @@ public sealed partial class IslandShell : UserControl
         _contentVisual.Scale = new Vector3((float)scale, (float)scale, 1f);
     }
 
-    /// <summary>把形状发给窗口区域（区域 = 胶囊 ∪ 小圆 ∪ 看板）。</summary>
+    // ---------------- 音乐：胶囊内容 + 右侧副岛 ----------------
+
+    /// <summary>媒体会话变化：切胶囊内容（时间 → 音乐），并决定副岛出不出现。</summary>
+    private void OnMediaChanged(MediaSnapshot snapshot)
+    {
+        var wasAvailable = _musicAvailable;
+        _musicAvailable = snapshot.IsAvailable;
+
+        // 收起态的胶囊：有歌 → 显示 ♪ 歌名，隐藏时钟；没歌 → 恢复时钟。
+        Clock.Visibility = _musicAvailable ? Visibility.Collapsed : Visibility.Visible;
+        MusicPill.Visibility = _musicAvailable ? Visibility.Visible : Visibility.Collapsed;
+
+        MusicPillTitle.Text = snapshot.IsAvailable ? snapshot.Title : string.Empty;
+        MusicPillState.Text = snapshot.IsAvailable && !snapshot.IsPlaying ? "已暂停" : string.Empty;
+
+        if (wasAvailable != _musicAvailable)
+        {
+            ApplyMusicLayout();
+            StartShapeSync();
+            Diagnostics.Log($"music island: {( _musicAvailable ? "出现" : "收起")}");
+        }
+    }
+
+    /// <summary>
+    /// 摆副岛的位置：副岛固定在「看板 + 缝隙」右侧；有副岛时看板整体左移半个副岛宽，
+    /// 让「看板 + 副岛」整组仍然居中。
+    /// </summary>
+    private void ApplyMusicLayout()
+    {
+        var groupWidth = _options.ExpandedGroupWidth;
+        var panelLeft = (_options.WindowWidth - groupWidth) / 2.0;
+        var sideLeft = panelLeft + _options.ExpandedWidth + _options.MusicSideGap;
+
+        MusicIsland.Width = _options.MusicSideWidth;
+        MusicIsland.Height = _options.MusicSideHeight;
+        MusicIsland.Margin = new Thickness(sideLeft, _options.PanelTop, 0, 0);
+        MusicIsland.Visibility = _musicAvailable ? Visibility.Visible : Visibility.Collapsed;
+
+        // 有副岛时看板整体左移半个副岛宽，让「看板 + 副岛」整组居中。
+        // 注意：纵向的 PanelTop 也要一起写回来（ApplyGeometry 里原来是 Margin(0, PanelTop, 0, 0)）。
+        var dashboardLeft = _musicAvailable
+            ? (_options.WindowWidth - _options.ExpandedGroupWidth) / 2.0
+            : (_options.WindowWidth - _options.ExpandedWidth) / 2.0;
+
+        Dashboard.HorizontalAlignment = HorizontalAlignment.Left;
+        Dashboard.Margin = new Thickness(dashboardLeft, _options.PanelTop, 0, 0);
+    }
+
+    /// <summary>把形状发给窗口区域（区域 = 胶囊 ∪ 小圆 ∪ 看板 ∪ 音乐副岛）。</summary>
     private void PublishShape(
         double pillLeft,
         double pillWidth,
@@ -783,8 +860,20 @@ public sealed partial class IslandShell : UserControl
         double panelHeight,
         double progress)
     {
+        // 音乐副岛只在展开态出现；它出现时「看板 + 副岛」整组左移，保证整组居中。
+        var musicSide = _musicAvailable && progress > 0.5;
+
+        var panelLeft = musicSide
+            ? (_options.WindowWidth - _options.ExpandedGroupWidth) / 2.0
+            : (_options.WindowWidth - panelWidth) / 2.0;
+
+        var sideLeft = panelLeft + _options.ExpandedWidth + _options.MusicSideGap;
+
         ShapeProgress?.Invoke(new IslandShapeSnapshot(
-            pillLeft, pillWidth, dotLeft, _options.DotSize, dotProgress, panelWidth, panelHeight, progress));
+            pillLeft, pillWidth, dotLeft, _options.DotSize, dotProgress,
+            panelLeft, panelWidth, panelHeight,
+            sideLeft, musicSide ? _options.MusicSideWidth : 0, _options.MusicSideHeight, musicSide ? 1.0 : 0.0,
+            progress));
     }
 
     private void OnShapeSyncTick(object? sender, object e)

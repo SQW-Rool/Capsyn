@@ -48,8 +48,10 @@ internal sealed class IslandWindowStyler
     private int _lastPillLeft = -1;
     private int _lastPillWidth = -1;
     private int _lastDotKey = -1;
+    private int _lastPanelLeft = -1;
     private int _lastPanelWidth = -1;
     private int _lastPanelHeight = -1;
+    private int _lastSideKey = -1;
 
     // 最近一次提交的形状：DPI / 分辨率变化后要按它把窗口区域重算一遍。
     private IslandShapeSnapshot? _lastShape;
@@ -236,16 +238,27 @@ internal sealed class IslandWindowStyler
         var dotSize = (int)Math.Round(Math.Max(2, shape.DotSize) * _scale);
         var dotLeft = (int)Math.Round(shape.DotLeft * _scale);
 
+        var panelLeftDip = shape.PanelLeft > 0.5 ? shape.PanelLeft : ((_width / _scale) - shape.PanelWidth) / 2.0;
+        var panelLeft = (int)Math.Round(panelLeftDip * _scale);
         var panelWidth = (int)Math.Round(Math.Max(0, shape.PanelWidth) * _scale);
         var panelHeight = (int)Math.Round(Math.Max(0, shape.PanelHeight) * _scale);
 
+        // 音乐副岛：独立的一块，出现在看板右侧。
+        var showSide = shape.SideOpacity > 0.02 && shape.SideWidth >= 2 && shape.SideHeight >= 2;
+        var sideLeft = (int)Math.Round(shape.SideLeft * _scale);
+        var sideWidth = (int)Math.Round(Math.Max(0, shape.SideWidth) * _scale);
+        var sideHeight = (int)Math.Round(Math.Max(0, shape.SideHeight) * _scale);
+
         // 形状没变就不要再提交（动画期间同一像素尺寸会重复出现很多帧）。
         var dotKey = showDot ? HashCode.Combine(dotLeft, dotSize) : 0;
+        var sideKey = showSide ? HashCode.Combine(sideLeft, sideWidth, sideHeight) : 0;
         if (pillLeft == _lastPillLeft
             && pillWidth == _lastPillWidth
             && dotKey == _lastDotKey
+            && panelLeft == _lastPanelLeft
             && panelWidth == _lastPanelWidth
-            && panelHeight == _lastPanelHeight)
+            && panelHeight == _lastPanelHeight
+            && sideKey == _lastSideKey)
         {
             return;
         }
@@ -253,13 +266,18 @@ internal sealed class IslandWindowStyler
         _lastPillLeft = pillLeft;
         _lastPillWidth = pillWidth;
         _lastDotKey = dotKey;
+        _lastPanelLeft = panelLeft;
         _lastPanelWidth = panelWidth;
         _lastPanelHeight = panelHeight;
+        _lastSideKey = sideKey;
 
         // 这行在动画期间是**逐帧**走的：字符串插值发生在调用之前，所以先看开关，别白造字符串。
         if (Diagnostics.IsEnabled)
         {
-            Diagnostics.Log($"region apply: pill {pillWidth}x{pillHeight} + dot {(showDot ? dotSize : 0)} + panel {panelWidth}x{panelHeight}");
+            Diagnostics.Log(
+                $"region apply: pill {pillWidth}x{pillHeight} + dot {(showDot ? dotSize : 0)} " +
+                $"+ panel {panelWidth}x{panelHeight}@({panelLeft}) " +
+                $"+ side {(showSide ? $"{sideWidth}x{sideHeight}@{sideLeft}" : "off")}");
         }
 
         var region = NativeMethods.CreateRoundRectRgn(
@@ -299,7 +317,6 @@ internal sealed class IslandWindowStyler
             var panelRadius = (int)Math.Round((10 + ((_options.ExpandedCornerRadius - 10) * progress)) * _scale);
             panelRadius = Math.Max(1, Math.Min(panelRadius, Math.Min(panelWidth, panelHeight) / 2));
 
-            var panelLeft = (_width - panelWidth) / 2;
             var panelTop = (int)Math.Round(_options.PanelTop * _scale);
 
             var panelRegion = NativeMethods.CreateRoundRectRgn(
@@ -314,6 +331,29 @@ internal sealed class IslandWindowStyler
             {
                 NativeMethods.CombineRgn(region, region, panelRegion, NativeMethods.RGN_OR);
                 NativeMethods.DeleteObject(panelRegion);
+            }
+        }
+
+        // 音乐副岛：看板右侧的独立一块（圆角跟看板一致，顶边对齐）。
+        if (showSide)
+        {
+            var sideRadius = (int)Math.Round(_options.ExpandedCornerRadius * _scale);
+            sideRadius = Math.Max(1, Math.Min(sideRadius, Math.Min(sideWidth, sideHeight) / 2));
+
+            var sideTop = (int)Math.Round(_options.PanelTop * _scale);
+
+            var sideRegion = NativeMethods.CreateRoundRectRgn(
+                sideLeft,
+                sideTop,
+                sideLeft + sideWidth + 1,
+                sideTop + sideHeight + 1,
+                sideRadius * 2,
+                sideRadius * 2);
+
+            if (sideRegion != IntPtr.Zero)
+            {
+                NativeMethods.CombineRgn(region, region, sideRegion, NativeMethods.RGN_OR);
+                NativeMethods.DeleteObject(sideRegion);
             }
         }
 

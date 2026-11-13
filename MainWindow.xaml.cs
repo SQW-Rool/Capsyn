@@ -59,8 +59,10 @@ public sealed partial class MainWindow : Window
             IslandOptions.Default.PillLeftFor(collapsedWidth) - IslandOptions.Default.DotGap - IslandOptions.Default.DotSize,
             IslandOptions.Default.DotSize,
             0,
+            IslandOptions.Default.PillLeftFor(collapsedWidth),
             collapsedWidth,
             collapsedHeight,
+            0, 0, 0, 0,
             0));                                  // 收起态：窗口只露出时间岛胶囊
 
         Activate();                                  // 显示窗口（此时还未禁止激活，保证一定可见）

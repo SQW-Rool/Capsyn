@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Capsyn.Controls.MusicIslandControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <!--
+        音乐副岛：音乐播放时出现在看板右侧的独立小岛（340×210）。
+        内容：封面 + 歌名/歌手 + 进度 + 播放控制；背景是专辑封面的低透明度光晕。
+        数据来自 IslandShell 注入的 MediaMonitor（系统媒体会话）。
+    -->
+    <Grid Padding="16">
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="22" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 背景：专辑封面铺满 + 黑色渐变遮罩 -->
+        <Grid x:Name="BackdropLayer" Grid.RowSpan="2" IsHitTestVisible="False">
+            <Image x:Name="BackdropImage" Stretch="UniformToFill" Opacity="0.42" />
+            <Border>
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#B3000000" Offset="0" />
+                        <GradientStop Color="#E6000000" Offset="0.6" />
+                        <GradientStop Color="#FA000000" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+        </Grid>
+
+        <!-- 头部：状态 + 均衡器 + 来源 -->
+        <Grid Grid.Row="0">
+            <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                <TextBlock
+                    x:Name="StateText"
+                    Text="没有正在播放"
+                    Style="{StaticResource HeroCaption}"
+                    VerticalAlignment="Center" />
+
+                <StackPanel
+                    x:Name="Equalizer"
+                    Orientation="Horizontal"
+                    Spacing="2.5"
+                    VerticalAlignment="Center"
+                    Height="12"
+                    Visibility="Collapsed">
+
+                    <Rectangle x:Name="Eq1" Width="2.5" Height="12" RadiusX="1.25" RadiusY="1.25" Fill="{ThemeResource AccentTextBrush}" VerticalAlignment="Bottom" />
+                    <Rectangle x:Name="Eq2" Width="2.5" Height="12" RadiusX="1.25" RadiusY="1.25" Fill="{ThemeResource AccentTextBrush}" VerticalAlignment="Bottom" />
+                    <Rectangle x:Name="Eq3" Width="2.5" Height="12" RadiusX="1.25" RadiusY="1.25" Fill="{ThemeResource AccentTextBrush}" VerticalAlignment="Bottom" />
+                </StackPanel>
+            </StackPanel>
+
+            <TextBlock
+                x:Name="SourceText"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Style="{StaticResource HeroCaption}"
+                TextTrimming="CharacterEllipsis"
+                MaxWidth="150" />
+        </Grid>
+
+        <!-- 主体：封面 + 信息 -->
+        <Grid Grid.Row="1" ColumnSpacing="14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="96" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border
+                x:Name="CoverFrame"
+                Width="96"
+                Height="96"
+                VerticalAlignment="Center"
+                CornerRadius="12"
+                BorderThickness="1"
+                BorderBrush="{ThemeResource CardBorderStrongBrush}"
+                Background="{ThemeResource CardBackgroundBrush}">
+
+                <Grid>
+                    <Image x:Name="CoverImage" Stretch="UniformToFill" Visibility="Collapsed" />
+                    <Path
+                        x:Name="CoverPlaceholder"
+                        Width="36"
+                        Height="36"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Stretch="Uniform"
+                        Stroke="{ThemeResource TextSecondaryBrush}"
+                        StrokeThickness="1.5"
+                        StrokeStartLineCap="Round"
+                        StrokeEndLineCap="Round"
+                        Opacity="0.6"
+                        Data="M 9.5,17.5 A 2.4,2.4 0 1 1 9.49,17.5 M 11.9,17.5 V 6.5 L 18,5 V 15 M 18,15 A 2.4,2.4 0 1 1 17.99,15" />
+                </Grid>
+            </Border>
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock
+                    x:Name="TitleText"
+                    Text="没有正在播放的媒体"
+                    FontSize="19"
+                    FontWeight="{ThemeResource TypeStrongWeight}"
+                    Foreground="{ThemeResource TextPrimaryBrush}"
+                    TextTrimming="CharacterEllipsis"
+                    MaxLines="1" />
+
+                <TextBlock
+                    x:Name="ArtistText"
+                    Text="打开播放器后自动显示"
+                    FontSize="12.5"
+                    Foreground="{ThemeResource TextSecondaryBrush}"
+                    Margin="0,3,0,0"
+                    TextTrimming="CharacterEllipsis"
+                    MaxLines="1" />
+
+                <ProgressBar
+                    x:Name="Progress"
+                    Minimum="0"
+                    Maximum="1"
+                    Value="0"
+                    Height="3"
+                    Margin="0,12,0,0" />
+
+                <Grid Margin="0,4,0,0">
+                    <TextBlock x:Name="PositionText" Text="--:--" Style="{StaticResource HeroCaption}" FontSize="11.5" />
+                    <TextBlock x:Name="DurationText" Text="--:--" HorizontalAlignment="Right" Style="{StaticResource HeroCaption}" FontSize="11.5" />
+                </Grid>
+
+                <StackPanel
+                    Orientation="Horizontal"
+                    Spacing="12"
+                    Margin="0,8,0,0"
+                    HorizontalAlignment="Center">
+
+                    <Button
+                        x:Name="PreviousButton"
+                        Style="{StaticResource IconButton}"
+                        Width="34"
+                        Height="34"
+                        Click="OnPreviousClick"
+                        IsEnabled="False">
+
+                        <Path
+                            Width="15"
+                            Height="15"
+                            Stretch="Uniform"
+                            Stroke="{ThemeResource TextPrimaryBrush}"
+                            StrokeThickness="{ThemeResource IconStrokeThickness}"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round"
+                            Data="M 5,5 V 19 M 19,5 L 8,12 L 19,19 Z" />
+                    </Button>
+
+                    <Button
+                        x:Name="PlayPauseButton"
+                        Width="44"
+                        Height="44"
+                        CornerRadius="22"
+                        BorderThickness="1"
+                        Background="{ThemeResource AccentTintStrongBrush}"
+                        BorderBrush="{ThemeResource AccentTintMaxBrush}"
+                        Click="OnPlayPauseClick"
+                        IsEnabled="False">
+
+                        <Grid>
+                            <Path
+                                x:Name="PlayIcon"
+                                Width="18"
+                                Height="18"
+                                Stretch="Uniform"
+                                Fill="{ThemeResource AccentTextBrush}"
+                                Data="M 7,4 L 20,12 L 7,20 Z" />
+
+                            <Path
+                                x:Name="PauseIcon"
+                                Width="18"
+                                Height="18"
+                                Stretch="Uniform"
+                                Fill="{ThemeResource AccentTextBrush}"
+                                Visibility="Collapsed"
+                                Data="M 6,4 H 10 V 20 H 6 Z M 14,4 H 18 V 20 H 14 Z" />
+                        </Grid>
+                    </Button>
+
+                    <Button
+                        x:Name="NextButton"
+                        Style="{StaticResource IconButton}"
+                        Width="34"
+                        Height="34"
+                        Click="OnNextClick"
+                        IsEnabled="False">
+
+                        <Path
+                            Width="15"
+                            Height="15"
+                            Stretch="Uniform"
+                            Stroke="{ThemeResource TextPrimaryBrush}"
+                            StrokeThickness="{ThemeResource IconStrokeThickness}"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round"
+                            Data="M 19,5 V 19 M 5,5 L 16,12 L 5,19 Z" />
+                    </Button>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

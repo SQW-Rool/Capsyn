@@ -732,10 +732,6 @@ public sealed partial class DashboardIslandControl : UserControl
         MusicPlayIcon.Visibility = snapshot.IsPlaying ? Visibility.Collapsed : Visibility.Visible;
         MusicPauseIcon.Visibility = snapshot.IsPlaying ? Visibility.Visible : Visibility.Collapsed;
 
-        // 指标页的「正在播放」入口：没有媒体就整颗按钮收起来。
-        MetricsMusicButton.Visibility = snapshot.IsAvailable ? Visibility.Visible : Visibility.Collapsed;
-        MetricsMusicText.Text = snapshot.IsAvailable ? snapshot.Title : "正在播放";
-
         UpdateMusicProgress();
         UpdateMusicTimer();
 
@@ -902,12 +898,6 @@ public sealed partial class DashboardIslandControl : UserControl
         }
 
         MusicEqualizer.Visibility = Visibility.Collapsed;
-    }
-
-    private void OnMetricsMusicClick(object sender, RoutedEventArgs e)
-    {
-        Diagnostics.Log("click: music");
-        SwitchTo(DashboardView.Music);
     }
 
     private void OnMusicBackClick(object sender, RoutedEventArgs e) => SwitchTo(DashboardView.Metrics);

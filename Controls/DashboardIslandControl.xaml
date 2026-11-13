@@ -140,34 +140,6 @@
                     </StackPanel>
                 </Button>
 
-                <!-- 正在播放入口：没有媒体会话时整颗按钮隐藏 -->
-                <Button
-                    x:Name="MetricsMusicButton"
-                    Style="{StaticResource ToolButton}"
-                    Click="OnMetricsMusicClick"
-                    Visibility="Collapsed">
-
-                    <StackPanel Orientation="Horizontal" Spacing="9">
-                        <Path
-                            Width="{ThemeResource IconSizeStandard}"
-                            Height="{ThemeResource IconSizeStandard}"
-                            Stretch="Uniform"
-                            Stroke="{ThemeResource AccentTextBrush}"
-                            StrokeThickness="{ThemeResource IconStrokeThickness}"
-                            StrokeStartLineCap="Round"
-                            StrokeEndLineCap="Round"
-                            Data="M 9.5,17.5 A 2.4,2.4 0 1 1 9.49,17.5 M 11.9,17.5 V 6.5 L 18,5 V 15 M 18,15 A 2.4,2.4 0 1 1 17.99,15" />
-
-                        <TextBlock
-                            x:Name="MetricsMusicText"
-                            Text="正在播放"
-                            FontSize="{ThemeResource TypeBodySize}"
-                            Foreground="{ThemeResource TextPrimaryBrush}"
-                            VerticalAlignment="Center"
-                            TextTrimming="CharacterEllipsis"
-                            MaxWidth="220" />
-                    </StackPanel>
-                </Button>
             </StackPanel>
         </Grid>
 

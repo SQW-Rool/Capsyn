@@ -69,14 +69,26 @@ public sealed class IslandOptions
     /// <summary>看板高度（DIP）：拖拽解压视图（虚线落点 + 进度 + 结果）。</summary>
     public double ExpandedDropHeight { get; init; } = 230;
 
-    /// <summary>看板高度（DIP）：音乐控制视图（封面 + 歌名/歌手 + 进度 + 播放控制）。</summary>
+    /// <summary>看板高度（DIP）：音乐视图（入口已挪到右侧副岛，这个视图现在不可达，保留给调试钩子用）。</summary>
     public double ExpandedMusicHeight { get; init; } = 268;
+
+    /// <summary>音乐副岛宽度（DIP）：音乐播放时出现在看板右侧的独立小岛。</summary>
+    public double MusicSideWidth { get; init; } = 340;
+
+    /// <summary>音乐副岛高度（DIP）。</summary>
+    public double MusicSideHeight { get; init; } = 210;
+
+    /// <summary>看板与音乐副岛之间的缝隙（DIP）。</summary>
+    public double MusicSideGap { get; init; } = 14;
+
+    /// <summary>展开态「看板 + 音乐副岛」这一组的宽度（DIP）。</summary>
+    public double ExpandedGroupWidth => ExpandedWidth + MusicSideGap + MusicSideWidth;
 
 
     /// <summary>所有视图里最大的看板高度：窗口画布和回弹余量都按它算。</summary>
     public double MaxExpandedHeight => Math.Max(
         Math.Max(ExpandedHeight, ExpandedToolsHeight),
-        Math.Max(ExpandedSettingsHeight, Math.Max(ExpandedAlertHeight, Math.Max(ExpandedDropHeight, ExpandedMusicHeight))));
+        Math.Max(ExpandedSettingsHeight, Math.Max(ExpandedAlertHeight, ExpandedDropHeight)));
 
     /// <summary>看板圆角半径（DIP）。</summary>
     public double ExpandedCornerRadius { get; init; } = 28;
@@ -97,7 +109,7 @@ public sealed class IslandOptions
     // ---------------- 由上面派生出的窗口内部布局 ----------------
 
     /// <summary>窗口宽度：取最大的胶囊宽度、看板（含回弹余量）里最宽的那个。</summary>
-    public double WindowWidth => Math.Max(MaxPillWidth, ExpandedWidth * BounceMargin);
+    public double WindowWidth => Math.Max(MaxPillWidth, ExpandedGroupWidth * BounceMargin);
 
     /// <summary>胶囊可能出现的最大宽度（时钟 320 / 监测 172）。</summary>
     public double MaxPillWidth => Math.Max(Width, MonitoringWidth);
