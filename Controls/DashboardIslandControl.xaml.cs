@@ -70,15 +70,6 @@ public sealed partial class DashboardIslandControl : UserControl
     private double _alertHeight;
     private double _dropHeight;
 
-    /// <summary>系统媒体会话服务（由 <see cref="IslandShell"/> 注入）；没注入时音乐视图显示空状态。</summary>
-    private MediaMonitor? _media;
-
-    /// <summary>音乐视图可见时，每 250ms 刷一次进度与位置文字（SMTC 自己不会推动画）。</summary>
-    private DispatcherTimer? _musicTimer;
-
-    /// <summary>最近一次媒体快照。</summary>
-    private MediaSnapshot _mediaSnapshot = MediaSnapshot.Empty;
-
     /// <summary>上一次解压到的目录（「打开文件夹」用）。</summary>
     private string? _lastExtractFolder;
 
@@ -257,7 +248,6 @@ public sealed partial class DashboardIslandControl : UserControl
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _timer.Stop();
-        _musicTimer?.Stop();
     }
 
     private async void OnTimerTick(object? sender, object e) => await SampleAsync();
