@@ -59,6 +59,16 @@ public sealed partial class IslandShell : UserControl
     /// <summary>驱动「第二个计时的小圆岛」出现进度（0 = 没有 / 1 = 完全展开）。</summary>
     private readonly SpringScalar _dotSpring = new();
 
+    /// <summary>
+    /// 音乐副岛滑出进度 0~1：0 = 藏在看板后面，1 = 完全滑到右侧。
+    /// 展开时先等看板长好（progress &gt; 0.8）再滑出；鼠标离开立刻往回收。
+    /// </summary>
+    private readonly SpringScalar _musicSlideSpring = new();
+
+    private double _musicSlide;
+    private double _musicDashLeftDip;
+    private double _musicSideLeftDip;
+
     /// <summary>胶囊宽度的目标值（弹簧没有 getter，单独记一份用于去重）。</summary>
     private double _pillWidthTarget;
 
@@ -204,6 +214,7 @@ public sealed partial class IslandShell : UserControl
         _heightSpring.Reset(_options.ExpandedHeight);
         _pillWidthSpring.Reset(_options.Width);
         _dotSpring.Reset(0);
+        _musicSlideSpring.Reset(0);
         _pillWidthTarget = _options.Width;
         _pillWidthDip = _options.Width;
         _pillLeftDip = _options.PillLeftFor(_options.Width);
@@ -224,7 +235,7 @@ public sealed partial class IslandShell : UserControl
         ElementCompositionPreview.SetIsTranslationEnabled(MusicIsland, true);
         ElementCompositionPreview.SetIsTranslationEnabled(MusicPill, true);
 
-        ApplyMusicLayout();
+        ApplyMusicSlide(0);
 
         // 如果启动时已经有计时在跑（比如秒表跨了一次 Unloaded），把 tick 接上。
         SyncTimeToolsTimer();
@@ -266,7 +277,7 @@ public sealed partial class IslandShell : UserControl
             _dropTestTimer.Start();
         }
 
-        // CAPSYN_MUSIC_TEST=1：展开看板并切到音乐视图（截图 / 自动验证用）。
+        // CAPSYN_MUSIC_TEST=1：只把看板展开（音乐副岛会随会话自动出现，用于截图 / 自动验证）。
         if (Environment.GetEnvironmentVariable("CAPSYN_MUSIC_TEST") == "1")
         {
             var musicTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000) };
@@ -275,8 +286,7 @@ public sealed partial class IslandShell : UserControl
             {
                 musicTimer.Stop();
                 SetDashboardExpanded(true, resetView: false);
-                Dashboard.ShowMusicView(animate: false);
-                Diagnostics.Log("music test: 已切到音乐视图");
+                Diagnostics.Log("music test: 已展开看板");
             };
             musicTimer.Start();
         }
@@ -650,6 +660,17 @@ public sealed partial class IslandShell : UserControl
             return;
         }
 
+        // 副岛还在外面：先让它滑回去（弹簧归零），再收起看板，避免副岛悬空。
+        if (_musicSlide > 0.05)
+        {
+            _musicSlideSpring.SetTarget(0, _options.CollapseSpringDampingRatio, _options.CollapseSpringPeriod.TotalSeconds);
+
+            // 形状同步可能在动画停稳后已经停了：重新开起来，让滑出弹簧继续推进。
+            StartShapeSync();
+            _collapseTimer.Start();
+            return;
+        }
+
         SetDashboardExpanded(false);
     }
 
@@ -678,21 +699,19 @@ public sealed partial class IslandShell : UserControl
 
         // 展开态：高度取**当前**看板高度（时间工具视图比指标视图高 80），
         // 否则切到工具视图后底部那 80px 会被判成「岛外」，鼠标一移下去就收起。
-        // 有音乐副岛时命中框要扩到「看板 + 副岛」整组，否则鼠标移到副岛上会被判成岛外。
+        // 有音乐副岛时命中框要扩到「看板 + 副岛」当前的整组位置，否则鼠标移到副岛上会被判成岛外。
         var height = Math.Max(_panelHeightDip, _options.ExpandedHeight);
 
-        if (_musicAvailable)
+        var leftDip = _musicDashLeftDip;
+        var rightDip = _musicDashLeftDip + _options.ExpandedWidth;
+
+        if (_musicSlide > 0.02)
         {
             height = Math.Max(height, _options.MusicSideHeight);
+            rightDip = Math.Max(rightDip, _musicSideLeftDip + _options.MusicSideWidth);
         }
 
-        var leftDip = _musicAvailable
-            ? (_options.WindowWidth - _options.ExpandedGroupWidth) / 2.0
-            : (_options.WindowWidth - _options.ExpandedWidth) / 2.0;
-
-        var widthDip = _musicAvailable
-            ? _options.ExpandedGroupWidth
-            : _options.ExpandedWidth;
+        var widthDip = Math.Max(_options.ExpandedWidth, rightDip - leftDip);
 
         return new RectInt32(
             origin.X + (int)Math.Round(leftDip * scale),
@@ -819,35 +838,39 @@ public sealed partial class IslandShell : UserControl
 
         if (wasAvailable != _musicAvailable)
         {
-            ApplyMusicLayout();
             StartShapeSync();
             Diagnostics.Log($"music island: {( _musicAvailable ? "出现" : "收起")}");
         }
     }
 
     /// <summary>
-    /// 摆副岛的位置：副岛固定在「看板 + 缝隙」右侧；有副岛时看板整体左移半个副岛宽，
-    /// 让「看板 + 副岛」整组仍然居中。
+    /// 按滑出进度摆两块岛：看板从居中位置往左移，副岛从看板后面往右滑出来。
+    /// <paramref name="slide"/> 0 = 看板居中、副岛完全藏在看板后面；1 = 看板左移、副岛滑到右侧。
     /// </summary>
-    private void ApplyMusicLayout()
+    private void ApplyMusicSlide(double slide)
     {
-        var groupWidth = _options.ExpandedGroupWidth;
-        var panelLeft = (_options.WindowWidth - groupWidth) / 2.0;
-        var sideLeft = panelLeft + _options.ExpandedWidth + _options.MusicSideGap;
+        slide = Math.Clamp(slide, 0.0, 1.0);
+
+        var shift = (_options.MusicSideWidth + _options.MusicSideGap) / 2.0;
+
+        // 看板：居中 → 左移半个副岛宽
+        _musicDashLeftDip = ((_options.WindowWidth - _options.ExpandedWidth) / 2.0) - (shift * slide);
+
+        // 副岛：起点藏在看板后面（起点右边缘 = 看板左移后的右边缘），终点在「看板 + 缝隙」右侧
+        var finalSideLeft = ((_options.WindowWidth - _options.ExpandedGroupWidth) / 2.0)
+            + _options.ExpandedWidth
+            + _options.MusicSideGap;
+        var hiddenSideLeft = finalSideLeft - (_options.MusicSideWidth + _options.MusicSideGap);
+        _musicSideLeftDip = hiddenSideLeft + ((finalSideLeft - hiddenSideLeft) * slide);
+
+        Dashboard.HorizontalAlignment = HorizontalAlignment.Left;
+        Dashboard.Margin = new Thickness(_musicDashLeftDip, _options.PanelTop, 0, 0);
+        Dashboard.UpdatePanelHeight(_panelHeightDip);
 
         MusicIsland.Width = _options.MusicSideWidth;
         MusicIsland.Height = _options.MusicSideHeight;
-        MusicIsland.Margin = new Thickness(sideLeft, _options.PanelTop, 0, 0);
-        MusicIsland.Visibility = _musicAvailable ? Visibility.Visible : Visibility.Collapsed;
-
-        // 有副岛时看板整体左移半个副岛宽，让「看板 + 副岛」整组居中。
-        // 注意：纵向的 PanelTop 也要一起写回来（ApplyGeometry 里原来是 Margin(0, PanelTop, 0, 0)）。
-        var dashboardLeft = _musicAvailable
-            ? (_options.WindowWidth - _options.ExpandedGroupWidth) / 2.0
-            : (_options.WindowWidth - _options.ExpandedWidth) / 2.0;
-
-        Dashboard.HorizontalAlignment = HorizontalAlignment.Left;
-        Dashboard.Margin = new Thickness(dashboardLeft, _options.PanelTop, 0, 0);
+        MusicIsland.Margin = new Thickness(_musicSideLeftDip, _options.PanelTop, 0, 0);
+        MusicIsland.Visibility = slide > 0.01 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>把形状发给窗口区域（区域 = 胶囊 ∪ 小圆 ∪ 看板 ∪ 音乐副岛）。</summary>
@@ -860,19 +883,13 @@ public sealed partial class IslandShell : UserControl
         double panelHeight,
         double progress)
     {
-        // 音乐副岛只在展开态出现；它出现时「看板 + 副岛」整组左移，保证整组居中。
-        var musicSide = _musicAvailable && progress > 0.5;
-
-        var panelLeft = musicSide
-            ? (_options.WindowWidth - _options.ExpandedGroupWidth) / 2.0
-            : (_options.WindowWidth - panelWidth) / 2.0;
-
-        var sideLeft = panelLeft + _options.ExpandedWidth + _options.MusicSideGap;
+        // 音乐副岛：位置由滑出弹簧驱动（ApplyMusicSlide 每帧算好），这里直接用。
+        var musicSide = _musicSlide > 0.02 && progress > 0.4;
 
         ShapeProgress?.Invoke(new IslandShapeSnapshot(
             pillLeft, pillWidth, dotLeft, _options.DotSize, dotProgress,
-            panelLeft, panelWidth, panelHeight,
-            sideLeft, musicSide ? _options.MusicSideWidth : 0, _options.MusicSideHeight, musicSide ? 1.0 : 0.0,
+            _musicDashLeftDip, panelWidth, panelHeight,
+            _musicSideLeftDip, musicSide ? _options.MusicSideWidth : 0, _options.MusicSideHeight, musicSide ? _musicSlide : 0.0,
             progress));
     }
 
@@ -903,6 +920,17 @@ public sealed partial class IslandShell : UserControl
 
         // 看板：横向从胶囊宽度长到看板宽度，纵向从 0 长到当前视图高度。
         var panelWidth = pillWidth + ((_options.ExpandedWidth - pillWidth) * progress);
+
+        // 音乐副岛：看板先展开（progress > 0.8），再滑出；鼠标离开 / 收起都会让它往回收。
+        var cursorInsideForMusic = IsCursorInsideIsland();
+        var slideTarget = _expanded && _musicAvailable && progress > 0.8 && cursorInsideForMusic ? 1.0 : 0.0;
+        _musicSlideSpring.SetTarget(
+            slideTarget,
+            _options.SpringDampingRatio,
+            _options.SpringPeriod.TotalSeconds);
+        _musicSlideSpring.Advance(deltaSeconds);
+        _musicSlide = Math.Clamp(_musicSlideSpring.Value, 0.0, 1.0);
+        ApplyMusicSlide(_musicSlide);
 
         _pillLeftDip = pillLeft;
         _pillWidthDip = pillWidth;

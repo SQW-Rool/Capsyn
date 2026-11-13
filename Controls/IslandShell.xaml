@@ -31,6 +31,13 @@
         <!-- 1) 纯黑底板：铺满整个窗口（默认 Stretch） -->
         <Border x:Name="IslandBackdrop" Background="{ThemeResource IslandSurfaceBrush}" />
 
+        <!-- 5) 音乐副岛：音乐播放时出现在看板右侧（位置由外壳按窗口宽度算） -->
+        <controls:MusicIslandControl
+            x:Name="MusicIsland"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Visibility="Collapsed" />
+
         <!-- 2) 看板岛内容（右下角自带「关闭程序」图标按钮） -->
         <controls:DashboardIslandControl
             x:Name="Dashboard"
@@ -91,11 +98,5 @@
             VerticalAlignment="Top"
             Opacity="0" />
 
-        <!-- 5) 音乐副岛：音乐播放时出现在看板右侧（位置由外壳按窗口宽度算） -->
-        <controls:MusicIslandControl
-            x:Name="MusicIsland"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Top"
-            Visibility="Collapsed" />
     </Grid>
 </UserControl>
