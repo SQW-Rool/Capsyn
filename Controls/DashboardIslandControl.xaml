@@ -12,7 +12,7 @@
         尺寸由 IslandShell 按 IslandOptions 设置（Width / Height / Margin），这里靠 Stretch 铺满。
 
         结构（所有面板都叠在同一个单元格里，靠可见性 + 过场切换）：
-          * MetricsPanel —— 视图 1「指标」：三张卡（CPU / 内存 / 网络）+ 左下「时间工具」入口
+          * MetricsPanel —— 视图 1「指标」：两个环形仪表（CPU / 内存）+ 一整行网络速率 + 左下「时间工具」入口
           * ToolsPanel   —— 视图 2「时间工具」：返回 + 标题 + 分段控件 + 环形读数 + 预设/步进 + 主按钮
           * Divider      —— 两个视图共用的横线（位置固定，过场时不动，像岛的"下巴"）
           * FooterLayer  —— 右下角「设置」「关闭程序」：**两个视图共用**，
@@ -33,96 +33,165 @@
 
         <Grid
             x:Name="MetricsPanel"
-            VerticalAlignment="Top"
-            ColumnSpacing="12">
+            VerticalAlignment="Top">
             <Grid.RowDefinitions>
-                <RowDefinition Height="104" />
-                <!-- 横线上方留白：和下面 Divider 的 118 对齐 -->
-                <RowDefinition Height="15" />
+                <RowDefinition Height="18" />
+                <RowDefinition Height="170" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
+            <!-- 顶部：标题 + 采样频率 -->
             <Grid Grid.Row="0">
+                <TextBlock
+                    Text="系统资源"
+                    Style="{StaticResource CardLabel}"
+                    VerticalAlignment="Center" />
+
+                <TextBlock
+                    Text="每 1 秒采样"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource HeroCaption}" />
+            </Grid>
+
+            <!-- 两个环形仪表 -->
+            <Grid Grid.Row="1" ColumnSpacing="24">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <!-- 处理器 -->
-                <Border
-                    x:Name="CardCpu"
-                    Grid.Column="0"
-                    Height="104"
-                    Style="{StaticResource CardBorder}">
-                    <StackPanel VerticalAlignment="Center" Spacing="8">
-                        <TextBlock Text="处理器" Style="{StaticResource CardLabel}" />
-                        <TextBlock Text="{x:Bind ViewModel.CpuText, Mode=OneWay}" Style="{StaticResource CardValue}" />
-                        <Grid Height="6">
-                            <Border Style="{StaticResource BarTrack}" />
-                            <Border Style="{StaticResource BarFill}" Width="{x:Bind ViewModel.CpuBarWidth, Mode=OneWay}" />
-                        </Grid>
-                    </StackPanel>
-                </Border>
+                <StackPanel Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Grid Width="132" Height="132">
+                        <Ellipse
+                            Width="132"
+                            Height="132"
+                            Stroke="{ThemeResource SubtleHoverBrush}"
+                            StrokeThickness="10" />
+
+                        <Path
+                            x:Name="CpuRingArc"
+                            Stroke="{ThemeResource AccentTextBrush}"
+                            StrokeThickness="10"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round" />
+
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock
+                                Text="{x:Bind ViewModel.CpuText, Mode=OneWay}"
+                                FontSize="27"
+                                FontFamily="Cascadia Code"
+                                FontWeight="SemiBold"
+                                Foreground="{ThemeResource TextPrimaryBrush}"
+                                HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock
+                        Text="处理器"
+                        Style="{StaticResource CardLabel}"
+                        HorizontalAlignment="Center"
+                        Margin="0,10,0,0" />
+                </StackPanel>
 
                 <!-- 内存 -->
-                <Border
-                    x:Name="CardMemory"
-                    Grid.Column="1"
-                    Height="104"
-                    Style="{StaticResource CardBorder}">
-                    <StackPanel VerticalAlignment="Center" Spacing="8">
-                        <Grid>
-                            <TextBlock Text="内存" Style="{StaticResource CardLabel}" HorizontalAlignment="Left" />
-                            <TextBlock Text="{x:Bind ViewModel.MemoryPercentText, Mode=OneWay}" Style="{StaticResource CardLabel}" HorizontalAlignment="Right" />
-                        </Grid>
-                        <TextBlock
-                            Text="{x:Bind ViewModel.MemoryText, Mode=OneWay}"
-                            Style="{StaticResource CardValue}"
-                            FontSize="{ThemeResource TypeBodySize}" />
-                        <Grid Height="6">
-                            <Border Style="{StaticResource BarTrack}" />
-                            <Border Style="{StaticResource BarFill}" Width="{x:Bind ViewModel.MemoryBarWidth, Mode=OneWay}" />
-                        </Grid>
-                    </StackPanel>
-                </Border>
+                <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Grid Width="132" Height="132">
+                        <Ellipse
+                            Width="132"
+                            Height="132"
+                            Stroke="{ThemeResource SubtleHoverBrush}"
+                            StrokeThickness="10" />
 
-                <!-- 网络上下行 -->
-                <Border
-                    x:Name="CardNetwork"
-                    Grid.Column="2"
-                    Height="104"
-                    Style="{StaticResource CardBorder}">
-                    <StackPanel VerticalAlignment="Center" Spacing="6">
-                        <TextBlock Text="网络" Style="{StaticResource CardLabel}" />
-                        <TextBlock
-                            Text="{x:Bind ViewModel.NetworkDownText, Mode=OneWay}"
-                            Style="{StaticResource CardValue}"
-                            FontSize="{ThemeResource TypeBodySize}" />
-                        <TextBlock
-                            Text="{x:Bind ViewModel.NetworkUpText, Mode=OneWay}"
-                            Style="{StaticResource CardValue}"
-                            FontSize="{ThemeResource TypeBodySize}" />
-                    </StackPanel>
-                </Border>
+                        <Path
+                            x:Name="MemoryRingArc"
+                            Stroke="{ThemeResource SecondaryAccentTextBrush}"
+                            StrokeThickness="10"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round" />
+
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock
+                                Text="{x:Bind ViewModel.MemoryPercentText, Mode=OneWay}"
+                                FontSize="27"
+                                FontFamily="Cascadia Code"
+                                FontWeight="SemiBold"
+                                Foreground="{ThemeResource TextPrimaryBrush}"
+                                HorizontalAlignment="Center" />
+                            <TextBlock
+                                Text="{x:Bind ViewModel.MemoryText, Mode=OneWay}"
+                                FontSize="10.5"
+                                Foreground="{ThemeResource TextTertiaryBrush}"
+                                HorizontalAlignment="Center"
+                                Margin="0,3,0,0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock
+                        Text="内存"
+                        Style="{StaticResource CardLabel}"
+                        HorizontalAlignment="Center"
+                        Margin="0,10,0,0" />
+                </StackPanel>
             </Grid>
 
-            <!-- 「时间工具」入口 -->
-            <!-- 底部入口行：时间工具 + 正在播放（有媒体时才出现） -->
-            <StackPanel
-                Grid.Row="2"
-                Margin="0,16,0,0"
-                Orientation="Horizontal"
-                Spacing="10"
-                VerticalAlignment="Top">
+            <!-- 底部：网络一行 + 时间工具入口 -->
+            <Grid Grid.Row="2" RowSpacing="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="56" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border
+                    x:Name="CardNetwork"
+                    Grid.Row="0"
+                    Style="{StaticResource CardBorder}"
+                    Padding="16,0">
+                    <Grid VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock
+                            Grid.Column="0"
+                            Text="网络"
+                            Style="{StaticResource CardLabel}"
+                            VerticalAlignment="Center"
+                            Margin="0,0,18,0" />
+
+                        <TextBlock
+                            Grid.Column="1"
+                            Text="{x:Bind ViewModel.NetworkDownText, Mode=OneWay}"
+                            FontSize="15"
+                            FontFamily="Cascadia Code"
+                            FontWeight="SemiBold"
+                            Foreground="{ThemeResource AccentTextBrush}"
+                            VerticalAlignment="Center" />
+
+                        <TextBlock
+                            Grid.Column="2"
+                            Text="{x:Bind ViewModel.NetworkUpText, Mode=OneWay}"
+                            FontSize="15"
+                            FontFamily="Cascadia Code"
+                            FontWeight="SemiBold"
+                            Foreground="{ThemeResource SecondaryAccentTextBrush}"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Right" />
+                    </Grid>
+                </Border>
 
                 <Button
                     x:Name="TimeToolsButton"
+                    Grid.Row="1"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
                     Style="{StaticResource ToolButton}"
                     Click="OnTimeToolsClick">
 
                     <StackPanel Orientation="Horizontal" Spacing="9">
-                        <!-- 时钟图标：矢量路径（圆环 + 两根指针），不依赖任何图标字体 -->
                         <Path
                             Width="{ThemeResource IconSizeStandard}"
                             Height="{ThemeResource IconSizeStandard}"
@@ -137,10 +206,20 @@
                             FontSize="{ThemeResource TypeBodySize}"
                             Foreground="{ThemeResource TextPrimaryBrush}"
                             VerticalAlignment="Center" />
+                        <Path
+                            Width="12"
+                            Height="12"
+                            Margin="4,0,0,0"
+                            Stretch="Uniform"
+                            VerticalAlignment="Center"
+                            Stroke="{ThemeResource TextTertiaryBrush}"
+                            StrokeThickness="{ThemeResource IconStrokeThickness}"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round"
+                            Data="M 9,5 L 16,12 L 9,19" />
                     </StackPanel>
                 </Button>
-
-            </StackPanel>
+            </Grid>
         </Grid>
 
         <!-- ==================== 视图 2：时间工具 ==================== -->
@@ -829,13 +908,14 @@
 
         <!-- ==================== 各个视图共用 ==================== -->
 
-        <!-- 横线：位置固定（指标卡片下方 14px），只在指标 / 时间工具两个视图里显示 -->
+        <!-- 横线：位置固定，只在时间工具视图里用（指标页现在是环形仪表，不需要它） -->
         <Border
             x:Name="DividerLine"
             Height="1"
             Margin="0,118,0,0"
             VerticalAlignment="Top"
             HorizontalAlignment="Stretch"
+            Visibility="Collapsed"
             Background="{ThemeResource DividerBrush}" />
 
         <!-- 右下角：「设置」「关闭程序」；看板高度变化时整层跟着底边上下滑 -->

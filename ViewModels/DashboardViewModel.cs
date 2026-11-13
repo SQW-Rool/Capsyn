@@ -29,6 +29,8 @@ public sealed class DashboardViewModel : ObservableObject
     private string _memoryText = "--";
     private string _memoryPercentText = "--";
     private double _memoryBarWidth;
+    private double _cpuPercent;
+    private double _memoryPercent;
     private string _networkDownText = "↓ --";
     private string _networkUpText = "↑ --";
 
@@ -44,6 +46,20 @@ public sealed class DashboardViewModel : ObservableObject
     {
         get => _cpuBarWidth;
         private set => SetProperty(ref _cpuBarWidth, value);
+    }
+
+    /// <summary>CPU 占用率（0~100，给环形仪表用）。</summary>
+    public double CpuPercent
+    {
+        get => _cpuPercent;
+        private set => SetProperty(ref _cpuPercent, value);
+    }
+
+    /// <summary>内存占用率（0~100，给环形仪表用）。</summary>
+    public double MemoryPercent
+    {
+        get => _memoryPercent;
+        private set => SetProperty(ref _memoryPercent, value);
     }
 
     /// <summary>内存用量，形如 "9.1 / 31.7 GB"。</summary>
@@ -97,6 +113,7 @@ public sealed class DashboardViewModel : ObservableObject
     {
         CpuText = string.Format(CultureInfo.InvariantCulture, "{0:0}%", metrics.CpuUsagePercent);
         CpuBarWidth = BarMaxWidth * metrics.CpuUsagePercent / 100.0;
+        CpuPercent = metrics.CpuUsagePercent;
 
         MemoryText = string.Format(
             CultureInfo.InvariantCulture,
@@ -106,6 +123,7 @@ public sealed class DashboardViewModel : ObservableObject
         var memoryPercent = metrics.MemoryUsagePercent;
         MemoryPercentText = string.Format(CultureInfo.InvariantCulture, "{0:0}%", memoryPercent);
         MemoryBarWidth = BarMaxWidth * memoryPercent / 100.0;
+        MemoryPercent = memoryPercent;
 
         NetworkDownText = "↓ " + FormatRate(metrics.NetworkDownBytesPerSecond);
         NetworkUpText = "↑ " + FormatRate(metrics.NetworkUpBytesPerSecond);

@@ -110,6 +110,9 @@ public sealed partial class DashboardIslandControl : UserControl
         // 计时由外壳 IslandShell 统一 tick（收起后也要走），这里只负责把状态画出来。
         TimeTools.PropertyChanged += OnTimeToolsPropertyChanged;
 
+        // 指标：百分比变化时重算两个环形仪表的弧。
+        ViewModel.PropertyChanged += OnMetricsPropertyChanged;
+
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
 
@@ -251,6 +254,68 @@ public sealed partial class DashboardIslandControl : UserControl
     }
 
     private async void OnTimerTick(object? sender, object e) => await SampleAsync();
+
+    // ---------------- 指标环形仪表 ----------------
+
+    /// <summary>环形仪表直径与线宽（和 XAML 里的 132 / 10 保持一致）。</summary>
+    private const double MetricRingSize = 132.0;
+    private const double MetricRingStroke = 10.0;
+
+    private void OnMetricsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(DashboardViewModel.CpuPercent) or nameof(DashboardViewModel.MemoryPercent))
+        {
+            UpdateMetricRings();
+        }
+    }
+
+    /// <summary>按当前百分比重画两个环。</summary>
+    private void UpdateMetricRings()
+    {
+        CpuRingArc.Data = BuildRingArc(ViewModel.CpuPercent);
+        MemoryRingArc.Data = BuildRingArc(ViewModel.MemoryPercent);
+    }
+
+    /// <summary>0~100 → 从 12 点方向顺时针的圆弧（0 时不画）。</summary>
+    private static Geometry BuildRingArc(double percent)
+    {
+        var geometry = new PathGeometry();
+
+        var fraction = Math.Clamp(percent, 0, 100) / 100.0;
+        if (fraction <= 0.002)
+        {
+            return geometry;
+        }
+
+        // 100% 时起点终点重合，弧会退化：留一点缺口。
+        fraction = Math.Min(fraction, 0.9985);
+
+        var radius = (MetricRingSize - MetricRingStroke) / 2.0;
+        var center = MetricRingSize / 2.0;
+        var startAngle = -Math.PI / 2.0;
+        var endAngle = startAngle + (fraction * Math.PI * 2.0);
+
+        static Point At(double center, double radius, double angle)
+            => new(center + (radius * Math.Cos(angle)), center + (radius * Math.Sin(angle)));
+
+        var figure = new PathFigure
+        {
+            StartPoint = At(center, radius, startAngle),
+            IsClosed = false,
+            IsFilled = false,
+        };
+
+        figure.Segments.Add(new ArcSegment
+        {
+            Point = At(center, radius, endAngle),
+            Size = new Size(radius, radius),
+            IsLargeArc = fraction > 0.5,
+            SweepDirection = SweepDirection.Clockwise,
+        });
+
+        geometry.Figures.Add(figure);
+        return geometry;
+    }
 
     // ---------------- 时间工具：把共享状态画出来 ----------------
 
@@ -578,7 +643,7 @@ public sealed partial class DashboardIslandControl : UserControl
         // 横线只属于「指标 / 时间工具」两页的布局；设置、到点提醒、解压岛里不要它（会横穿内容）。
         // 注意：这两行的可见性必须在**瞬切（!animate）分支之前**设好 ——
         // 瞬切分支会提前 return，放在后面就会出现"解压岛上横着一条线"。
-        DividerLine.Visibility = target is DashboardView.Metrics or DashboardView.Tools
+        DividerLine.Visibility = target == DashboardView.Tools
             ? Visibility.Visible
             : Visibility.Collapsed;
 
@@ -642,7 +707,7 @@ public sealed partial class DashboardIslandControl : UserControl
         SettingsPanel.Visibility = Visibility.Collapsed;
         AlertPanel.Visibility = Visibility.Collapsed;
         DropPanel.Visibility = Visibility.Collapsed;
-        DividerLine.Visibility = Visibility.Visible;
+        DividerLine.Visibility = Visibility.Collapsed;
         FooterLayer.Visibility = Visibility.Visible;
 
         // 复位不是过场：把五个视图都推回静止态，免得有半截动画（位移 / 透明度）留在上面。
