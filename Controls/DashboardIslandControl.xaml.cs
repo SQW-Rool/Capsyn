@@ -258,8 +258,8 @@ public sealed partial class DashboardIslandControl : UserControl
     // ---------------- 指标环形仪表 ----------------
 
     /// <summary>环形仪表直径与线宽（和 XAML 里的 132 / 10 保持一致）。</summary>
-    private const double MetricRingSize = 132.0;
-    private const double MetricRingStroke = 10.0;
+    private const double MetricRingSize = 108.0;
+    private const double MetricRingStroke = 8.0;
 
     private void OnMetricsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
