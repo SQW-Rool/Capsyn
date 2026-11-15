@@ -72,6 +72,9 @@ public sealed partial class MusicIslandControl : UserControl
     /// <summary>「仅提醒」模式下用户点了「暂停它」：参数是冲突的 AUMID。</summary>
     public event Action<string>? ConflictPauseRequested;
 
+    /// <summary>音源面板显示 / 隐藏了（面板也可能由副岛内部的按钮打开，外壳要跟着同步状态）。</summary>
+    public event Action<bool>? PickerVisibilityChanged;
+
     /// <summary>当前是不是音源选择视图。</summary>
     public bool IsPickerOpen => _pickerOpen;
 
@@ -107,6 +110,8 @@ public sealed partial class MusicIslandControl : UserControl
             Equalizer.Visibility = _equalizerRunning ? Visibility.Visible : Visibility.Collapsed;
             ApplySnapshotToPlayer();
         }
+
+        PickerVisibilityChanged?.Invoke(show);
     }
 
     /// <summary>外壳在选中音源后调用：同步高亮（面板可能还开着）。</summary>

@@ -229,6 +229,7 @@ public sealed partial class IslandShell : UserControl
         Dashboard.MusicSourceRequested += OnMusicSourceRequested;
         MusicIsland.SourceSelected += OnMusicSourceSelected;
         MusicIsland.PickerClosed += OnMusicPickerClosed;
+        MusicIsland.PickerVisibilityChanged += OnMusicPickerVisibilityChanged;
         Dashboard.SetMusicButtonVisible(!_media.Current.IsAvailable);
 
         _panelSpring.Reset(0);
@@ -918,6 +919,22 @@ public sealed partial class IslandShell : UserControl
     private void OnMusicPickerClosed()
     {
         SetSourcePickerOpen(false);
+    }
+
+    /// <summary>
+    /// 面板也可能是副岛内部（头部「音源名 ▾」）打开的：这里只同步状态，不能再回调 ShowSourcePicker，
+    /// 否则「点返回 → 回调关闭 → 又触发状态变化」会绕圈。
+    /// </summary>
+    private void OnMusicPickerVisibilityChanged(bool open)
+    {
+        if (_sourcePickerOpen == open)
+        {
+            return;
+        }
+
+        _sourcePickerOpen = open;
+        StartShapeSync();
+        Diagnostics.Log($"music source: picker {(open ? "打开" : "关闭")}（副岛内部触发）");
     }
 
     // ---------------- 播放冲突 ----------------
