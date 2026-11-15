@@ -960,6 +960,8 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     ③ 本机没装的置灰（`MediaSourceCatalog` 探测进程 / 卸载注册表 / App Paths / 常见目录，缓存 3 秒）；
     ④ 选中后 `MediaMonitor` 只跟随该音源的 SMTC 会话，没在运行则尝试启动；选择持久化到 `settings.json`；
     ⑤ 实测：未安装的 Spotify / Windows 媒体播放器正确置灰；选汽水音乐后自动挂上它的会话并切回播放器视图。
+    ⑥ 修「自动跟随」不跟随播放器：原来只取 `GetCurrentSession()`（汽水暂停后它仍是当前会话），
+    改为「正在播放的会话优先」+ 2 秒一次的低频巡检，并处理播放器重启导致的旧会话对象失效。
   * `v6.1.0-Always-on-top.FunctionFixed`（**稳定 · 测试版**：tag + Release asset）—— **置顶看门狗**：
     ① 保留 `OverlappedPresenter` 引用，窗口显示之后再设一次 `IsAlwaysOnTop`（构造阶段那次在真正显示前不一定生效）；
     ② 新增 2 秒一次的置顶看门狗：沿 Z 序往上遍历，只要有可见窗口与岛**当前可见轮廓**

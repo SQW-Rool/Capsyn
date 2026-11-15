@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Capsyn.Configuration;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
 using Windows.Media.Control;
 
 namespace Capsyn.Services;
@@ -63,6 +64,12 @@ public sealed class MediaMonitor : IDisposable
 
     /// <summary>用户选定的音源 id（null = 自动跟随系统当前会话）。</summary>
     private string? _preferredSourceId = AppSettings.Current.PreferredMediaSource;
+
+    /// <summary>
+    /// 低频巡检：SMTC 只在「会话列表 / 当前会话」变化时通知，播放器 A 暂停、B 开始播时不一定触发；
+    /// 2 秒重新挑一次会话，保证自动跟随能真的跟着「正在播放的」那个走。
+    /// </summary>
+    private DispatcherTimer? _sessionWatchdog;
 
     private MediaSnapshot _current = MediaSnapshot.Empty;
     private DateTimeOffset _timelineUpdatedAt = DateTimeOffset.MinValue;
@@ -149,6 +156,7 @@ public sealed class MediaMonitor : IDisposable
 
             Diagnostics.Log($"media: 已连接（当前会话数 {_manager.GetSessions().Count}，音源 {_preferredSourceId ?? "自动"}）");
             AttachSession(PickSession());
+            StartSessionWatchdog();
         }
         catch (Exception ex)
         {
@@ -281,6 +289,31 @@ public sealed class MediaMonitor : IDisposable
         }
     }
 
+    /// <summary>启动「谁在播就跟谁」的低频巡检。</summary>
+    private void StartSessionWatchdog()
+    {
+        if (_sessionWatchdog is not null)
+        {
+            return;
+        }
+
+        _sessionWatchdog = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _sessionWatchdog.Tick += (_, _) =>
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (ReattachIfNeeded())
+            {
+                Diagnostics.Log("media: 巡检换会话");
+            }
+        };
+
+        _sessionWatchdog.Start();
+    }
+
     /// <summary>挑一次会话；返回 true 表示已经（重新）挂上，调用方不用再刷新。</summary>
     private bool ReattachIfNeeded()
     {
@@ -290,7 +323,24 @@ public sealed class MediaMonitor : IDisposable
         }
 
         var desired = PickSession();
-        if (ReferenceEquals(desired, _session))
+
+        if (desired is null)
+        {
+            if (_session is null)
+            {
+                return false;
+            }
+
+            AttachSession(null);
+            return true;
+        }
+
+        // 同一个 app 的会话就算同一个：WinRT 每次 GetSessions() 都返回新的代理对象，
+        // 用 ReferenceEquals 会误判成「变了」而反复重挂；按 AUMID 比较才稳定。
+        // 但如果旧会话已经失效（播放器重启过），同 AUMID 也要重挂。
+        if (_session is not null &&
+            string.Equals(_session.SourceAppUserModelId, desired.SourceAppUserModelId, StringComparison.Ordinal) &&
+            IsSessionUsable(_session))
         {
             return false;
         }
@@ -300,8 +350,10 @@ public sealed class MediaMonitor : IDisposable
     }
 
     /// <summary>
-    /// 按偏好挑会话：选了音源就只认匹配它的会话（没有就返回 null，让 UI 显示「等待播放」）；
-    /// 没选就跟随系统当前会话，再不行取第一个。
+    /// 按偏好挑会话：
+    ///   * 选了音源 → 只认匹配它的会话（多个时优先正在播放的）；
+    ///   * 自动跟随 → 「正在播放的」优先（先看系统当前会话，再看其它会话），都暂停时才用当前会话兜底。
+    /// 之前的实现只取 GetCurrentSession()，汽水暂停后切到酷狗播放时仍然停在汽水 —— 就是这里的问题。
     /// </summary>
     private GlobalSystemMediaTransportControlsSession? PickSession()
     {
@@ -311,24 +363,74 @@ public sealed class MediaMonitor : IDisposable
         }
 
         var sessions = _manager.GetSessions();
+        var current = _manager.GetCurrentSession();
         var definition = MediaSourceCatalog.Find(_preferredSourceId);
 
         if (definition is not null)
         {
+            GlobalSystemMediaTransportControlsSession? fallback = null;
             foreach (var session in sessions)
             {
-                if (MediaSourceCatalog.Matches(definition, session.SourceAppUserModelId))
+                if (!MediaSourceCatalog.Matches(definition, session.SourceAppUserModelId))
+                {
+                    continue;
+                }
+
+                if (IsPlaying(session))
                 {
                     return session;
                 }
+
+                fallback ??= session;
             }
 
-            return null;
+            return fallback;
         }
 
-        return _manager.GetCurrentSession() ?? (sessions.Count > 0 ? sessions[0] : null);
+        // 自动跟随：当前会话正在播就继续用它；否则挑一个正在播的；都没有才用当前会话 / 第一个。
+        if (current is not null && IsPlaying(current))
+        {
+            return current;
+        }
+
+        foreach (var session in sessions)
+        {
+            if (IsPlaying(session))
+            {
+                return session;
+            }
+        }
+
+        return current ?? (sessions.Count > 0 ? sessions[0] : null);
     }
 
+    /// <summary>旧会话对象是否还能读（播放器重启 / 会话销毁后会抛异常）。</summary>
+    private static bool IsSessionUsable(GlobalSystemMediaTransportControlsSession session)
+    {
+        try
+        {
+            session.GetPlaybackInfo();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>会话当前是不是「正在播放」（读不到状态就当没有）。</summary>
+    private static bool IsPlaying(GlobalSystemMediaTransportControlsSession session)
+    {
+        try
+        {
+            return session.GetPlaybackInfo()?.PlaybackStatus
+                == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+        }
+        catch
+        {
+            return false;
+        }
+    }
     private void OnMediaPropertiesChanged(GlobalSystemMediaTransportControlsSession sender, MediaPropertiesChangedEventArgs args)
         => _ = RefreshAsync();
 
@@ -557,6 +659,8 @@ public sealed class MediaMonitor : IDisposable
         }
 
         _disposed = true;
+        _sessionWatchdog?.Stop();
+        _sessionWatchdog = null;
         DetachSession();
 
         if (_manager is not null)
