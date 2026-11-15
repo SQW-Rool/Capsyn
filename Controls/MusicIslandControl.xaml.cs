@@ -86,19 +86,29 @@ public sealed partial class MusicIslandControl : UserControl
     /// 切到音源选择视图 / 回到播放器。
     /// <paramref name="show"/> = true 时立刻异步刷新一次本机音源状态。
     /// </summary>
+    /// <summary>
+    /// 播放器 ↔ 音源面板切换。两层做交叉淡入淡出 + 水平位移（220ms），
+    /// 不再是一瞬间换视图；背景遮罩同时淡到 0.55 / 1。
+    /// </summary>
     public void ShowSourcePicker(bool show)
     {
+        if (_pickerOpen == show)
+        {
+            PlayerLayer.Visibility = show ? Visibility.Collapsed : Visibility.Visible;
+            PickerLayer.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            SourceButton.Visibility = show ? Visibility.Collapsed : Visibility.Visible;
+            PickerBackButton.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            return;
+        }
+
         _pickerOpen = show;
 
-        PlayerLayer.Visibility = show ? Visibility.Collapsed : Visibility.Visible;
-        PickerLayer.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         SourceButton.Visibility = show ? Visibility.Collapsed : Visibility.Visible;
         PickerBackButton.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
 
         if (show)
         {
             StateText.Text = "音源选择";
-            BackdropLayer.Opacity = 0.55;
             Equalizer.Visibility = Visibility.Collapsed;
             _noticeTimer?.Stop();
             ClearConflictPrompt();
@@ -106,12 +116,124 @@ public sealed partial class MusicIslandControl : UserControl
         }
         else
         {
-            BackdropLayer.Opacity = 1;
             Equalizer.Visibility = _equalizerRunning ? Visibility.Visible : Visibility.Collapsed;
             ApplySnapshotToPlayer();
         }
 
+        AnimatePickerSwap(show);
         PickerVisibilityChanged?.Invoke(show);
+    }
+
+    /// <summary>过渡时长；CAPSYN_UI_ANIM_MS 可临时放大（录屏 / 截图验证动作用）。</summary>
+    private static readonly TimeSpan LayerTransitionDuration = TimeSpan.FromMilliseconds(
+        int.TryParse(Environment.GetEnvironmentVariable("CAPSYN_UI_ANIM_MS"), out var customMs) &&
+        customMs is >= 80 and <= 3000
+            ? customMs
+            : 220);
+    private const double LayerTransitionSlide = 16;
+
+    private DispatcherTimer? _layerTransitionTimer;
+    private FrameworkElement? _pendingOutgoing;
+    private FrameworkElement? _pendingIncoming;
+    private double _pendingBackdropTarget = 1;
+
+    private void AnimatePickerSwap(bool show)
+    {
+        var outgoing = show ? (FrameworkElement)PlayerLayer : PickerLayer;
+        var incoming = show ? (FrameworkElement)PickerLayer : PlayerLayer;
+
+        incoming.Visibility = Visibility.Visible;
+        incoming.IsHitTestVisible = true;
+        outgoing.IsHitTestVisible = false;
+
+        var compositor = ElementCompositionPreview.GetElementVisual(this).Compositor;
+        var ease = compositor.CreateCubicBezierEasingFunction(
+            new Vector2(0.16f, 1f),
+            new Vector2(0.3f, 1f));
+
+        AnimateLayer(incoming, compositor, show ? LayerTransitionSlide : -LayerTransitionSlide, 0, 0.0, 1.0, ease);
+        AnimateLayer(outgoing, compositor, 0, show ? -LayerTransitionSlide : LayerTransitionSlide, 1.0, 0.0, ease);
+
+        // 背景遮罩跟着渐变（不重置，动画停在目标值即可）
+        var backdropVisual = ElementCompositionPreview.GetElementVisual(BackdropLayer);
+        backdropVisual.StopAnimation("Opacity");
+        var backdropFade = compositor.CreateScalarKeyFrameAnimation();
+        backdropFade.InsertKeyFrame(0f, show ? 1.0f : 0.55f);
+        backdropFade.InsertKeyFrame(1f, show ? 0.55f : 1.0f, ease);
+        backdropFade.Duration = LayerTransitionDuration;
+        backdropVisual.StartAnimation("Opacity", backdropFade);
+        _pendingBackdropTarget = show ? 0.55 : 1.0;
+
+        _pendingOutgoing = outgoing;
+        _pendingIncoming = incoming;
+
+        _layerTransitionTimer ??= new DispatcherTimer();
+        _layerTransitionTimer.Stop();
+        _layerTransitionTimer.Interval = LayerTransitionDuration + TimeSpan.FromMilliseconds(30);
+        _layerTransitionTimer.Tick -= OnLayerTransitionTick;
+        _layerTransitionTimer.Tick += OnLayerTransitionTick;
+        _layerTransitionTimer.Start();
+    }
+
+    private void OnLayerTransitionTick(object? sender, object e)
+    {
+        _layerTransitionTimer?.Stop();
+
+        if (_pendingOutgoing is not null)
+        {
+            _pendingOutgoing.Visibility = Visibility.Collapsed;
+            _pendingOutgoing.IsHitTestVisible = true;
+            ReleaseLayerVisual(_pendingOutgoing);
+            _pendingOutgoing = null;
+        }
+
+        if (_pendingIncoming is not null)
+        {
+            ReleaseLayerVisual(_pendingIncoming);
+            _pendingIncoming = null;
+        }
+
+        // 遮罩的基值落到目标值，再停动画（否则下一次过渡会从旧基值开始闪一下）
+        BackdropLayer.Opacity = _pendingBackdropTarget;
+        var backdropVisual = ElementCompositionPreview.GetElementVisual(BackdropLayer);
+        backdropVisual.StopAnimation("Opacity");
+    }
+
+    private static void AnimateLayer(
+        UIElement element,
+        Compositor compositor,
+        double fromX,
+        double toX,
+        double fromOpacity,
+        double toOpacity,
+        CompositionEasingFunction ease)
+    {
+        var visual = ElementCompositionPreview.GetElementVisual(element);
+
+        // 注意：不能动画 Offset —— 它会把布局位置覆盖成绝对坐标（动画完元素被钉在 0,0）。
+        // Translation 是叠加在布局位置之上的，动画完归零就回到原来的行/列位置。
+        ElementCompositionPreview.SetIsTranslationEnabled(element, true);
+
+        var translate = compositor.CreateVector3KeyFrameAnimation();
+        translate.InsertKeyFrame(0f, new Vector3((float)fromX, 0, 0));
+        translate.InsertKeyFrame(1f, new Vector3((float)toX, 0, 0), ease);
+        translate.Duration = LayerTransitionDuration;
+        visual.StartAnimation("Translation", translate);
+
+        var fade = compositor.CreateScalarKeyFrameAnimation();
+        fade.InsertKeyFrame(0f, (float)fromOpacity);
+        fade.InsertKeyFrame(1f, (float)toOpacity, ease);
+        fade.Duration = LayerTransitionDuration;
+        visual.StartAnimation("Opacity", fade);
+    }
+
+    /// <summary>动画结束后停掉 Composition 动画，把视觉属性还原成 XAML 的基值（下次动画从干净状态开始）。</summary>
+    private static void ReleaseLayerVisual(UIElement element)
+    {
+        var visual = ElementCompositionPreview.GetElementVisual(element);
+        visual.StopAnimation("Opacity");
+        visual.StopAnimation("Translation");
+        visual.Opacity = 1f;
     }
 
     /// <summary>外壳在选中音源后调用：同步高亮（面板可能还开着）。</summary>

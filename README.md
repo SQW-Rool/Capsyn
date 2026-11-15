@@ -976,6 +976,8 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     改为「正在播放的会话优先」+ 2 秒一次的低频巡检，并处理播放器重启导致的旧会话对象失效。
     ⑦ 新增**播放冲突监测**（`PlaybackConflictGuard`）：两个播放器同时 Playing 时，默认保留最新开始播放的那个、
     通过 `TryPauseAsync` 暂停更早的；设置页可选「独占播放 / 仅提醒 / 关闭」；10 秒冷却 + 手动恢复优先，避免来回抢。
+    ⑧ 音源面板的展开 / 关闭加过渡：播放器层与面板层 220ms 交叉淡入淡出 + 横向 16px 位移，背景遮罩同步渐变；
+    用 Composition 的 `Translation`（叠加布局位置）而不是 `Offset`（会覆盖布局位置）；`CAPSYN_UI_ANIM_MS` 可放大过渡时长做录屏验证。
   * `v6.1.0-Always-on-top.FunctionFixed`（**稳定 · 测试版**：tag + Release asset）—— **置顶看门狗**：
     ① 保留 `OverlappedPresenter` 引用，窗口显示之后再设一次 `IsAlwaysOnTop`（构造阶段那次在真正显示前不一定生效）；
     ② 新增 2 秒一次的置顶看门狗：沿 Z 序往上遍历，只要有可见窗口与岛**当前可见轮廓**
