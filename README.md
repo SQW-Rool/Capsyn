@@ -245,8 +245,18 @@ SetWindowRgn(hwnd, region, true);
 * 每秒采样一次，采样跑在线程池上，回到 UI 线程再刷新绑定。
 
 ### 6. 始终置顶
-`OverlappedPresenter.IsAlwaysOnTop = true`（即 `WS_EX_TOPMOST`），显示后再补一次
-`SetWindowPos(HWND_TOPMOST, ..., SWP_NOACTIVATE)`；实测在 Z 序里位于任务栏、Edge 等所有窗口之上。
+`OverlappedPresenter.IsAlwaysOnTop = true`（即 `WS_EX_TOPMOST`），**显示之后**再应用一次（构造阶段设的
+在窗口还没显示时可能不生效），显示后再补一次 `SetWindowPos(HWND_TOPMOST, ..., SWP_NOACTIVATE)`。
+
+**置顶看门狗**：`WS_EX_TOPMOST` 只保证「在所有**普通**窗口之上」，同属置顶层的窗口
+（桌面歌词、各种悬浮工具、别的「置顶」窗口）后出现时会插到岛的前面，把岛压住 ——
+看起来就是「没能置顶」。`IslandWindowStyler` 里加了一个 2 秒一次的看门狗：
+沿 Z 序往上找，**只要有可见窗口真的和岛（当前可见轮廓的包围盒）相交**，就
+`SetWindowPos(HWND_TOPMOST, ...)` 把岛顶回最上层；TOPMOST 位丢了也会补回来。
+只看「有没有窗口在上面」不行 —— 任务栏、系统 tooltip 这些置顶窗口常年挂在最上面但不和岛重叠，
+那样会每 2 秒白顶一次；用矩形相交判断后，只在真被压住时才动 Z 序（不抢焦点、不移动、不缩放）。
+实测：8 秒空闲 0 次重顶；右下角放一个不重叠的置顶窗口 0 次重顶；在岛上下方盖一个置顶窗口，
+≤2 秒内岛回到它上面；关掉后不再继续顶。
 
 ### 7. 不出现在任务栏 / Alt+Tab
 `AppWindow.IsShownInSwitchers = false` + `WS_EX_TOOLWINDOW` 双保险；窗口没有 owner，也没有任务栏按钮。

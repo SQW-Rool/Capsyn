@@ -50,6 +50,9 @@ internal static class NativeMethods
     public const int SW_HIDE = 0;
     public const int SW_SHOWNOACTIVATE = 4;
 
+    // ---- 读 Z 序 / 可见性（置顶看门狗用） ----
+    public const uint GW_HWNDPREV = 3;    // 上面一个窗口
+
     // ---- DWM ----
     public const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
     public const int DWMWCP_DONOTROUND = 1;
@@ -82,6 +85,15 @@ internal static class NativeMethods
     {
         public int X;
         public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
     }
 
     public delegate IntPtr SubclassProc(
@@ -128,6 +140,18 @@ internal static class NativeMethods
 
     [DllImport("user32.dll")]
     public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    /// <summary>按 GW_HWNDPREV 在 Z 序里往上找窗口（置顶看门狗用）。</summary>
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+    /// <summary>窗口当前是否可见（看门狗要跳过输入法那堆隐藏的置顶窗口）。</summary>
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+
+    /// <summary>窗口矩形（屏幕坐标，物理像素）。看门狗用它判断上面的窗口是否真的压住了岛。</summary>
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
     /// <summary>窗口所在显示器的缩放比例（96 DPI = 1.0）。</summary>
     [DllImport("user32.dll")]

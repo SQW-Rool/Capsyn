@@ -11,7 +11,8 @@ namespace Capsyn.Services;
 /// 悬浮岛窗口的「系统行为」都收在这里：
 ///   * 无边框、无标题栏、不可缩放
 ///   * 不出现在任务栏、不出现在 Alt+Tab（IsShownInSwitchers = false + WS_EX_TOOLWINDOW）
-///   * 始终置顶（OverlappedPresenter.IsAlwaysOnTop = true → WS_EX_TOPMOST）
+///   * 始终置顶（OverlappedPresenter.IsAlwaysOnTop = true → WS_EX_TOPMOST），
+///     并且有一个低频「置顶看门狗」：别的置顶窗口后出现压住岛时，把它重新顶回最上层
 ///   * 窗口大小固定为「看板尺寸」这块画布，可见轮廓完全由窗口区域裁出来：
 ///       - 收起时区域 = 顶部居中的胶囊
 ///       - 展开时区域 = 胶囊 ∪ 下方看板（两块圆角矩形并集）
@@ -27,6 +28,12 @@ internal sealed class IslandWindowStyler
     private readonly AppWindow _appWindow;
     private readonly IslandOptions _options;
     private readonly IntPtr _hwnd;
+
+    /// <summary>窗口 presenter（保留引用，显示之后要再应用一次「置顶」）。</summary>
+    private OverlappedPresenter? _presenter;
+
+    /// <summary>置顶看门狗：低频检查、必要时把窗口重新压回置顶层。</summary>
+    private DispatcherTimer? _topMostWatchdog;
 
     /// <summary>必须保存委托实例，否则会被 GC 回收导致回调崩溃。</summary>
     private readonly NativeMethods.SubclassProc _subclassProc;
@@ -56,6 +63,14 @@ internal sealed class IslandWindowStyler
     // 最近一次提交的形状：DPI / 分辨率变化后要按它把窗口区域重算一遍。
     private IslandShapeSnapshot? _lastShape;
 
+    // 当前可见轮廓的包围盒（窗口坐标，物理像素）：置顶看门狗用它判断「岛是不是真被压住了」。
+    // 注意是「看得见的那几块」的并集，不是整块窗口画布 —— 画布下半部分大面积是空的，
+    // 拿它去判重叠会误伤（比如别的置顶窗口压在空白区域，岛其实一点没被挡）。
+    private int _visibleLeft;
+    private int _visibleTop;
+    private int _visibleRight;
+    private int _visibleBottom;
+
     public IslandWindowStyler(Window window, IntPtr hwnd, IslandOptions options)
     {
         _hwnd = hwnd;
@@ -76,6 +91,8 @@ internal sealed class IslandWindowStyler
     {
         if (_appWindow.Presenter is OverlappedPresenter presenter)
         {
+            _presenter = presenter;
+
             // 去掉标题栏和边框；顺便关掉缩放/最大化/最小化。
             presenter.SetBorderAndTitleBar(false, false);
             presenter.IsResizable = false;
@@ -271,6 +288,37 @@ internal sealed class IslandWindowStyler
         _lastPanelHeight = panelHeight;
         _lastSideKey = sideKey;
 
+        // 记下「看得见的那几块」的包围盒（窗口坐标，物理像素）：置顶看门狗拿它判断是否真被压住。
+        var panelTop = (int)Math.Round(_options.PanelTop * _scale);
+
+        _visibleLeft = pillLeft;
+        _visibleTop = 0;
+        _visibleRight = pillLeft + pillWidth;
+        _visibleBottom = pillHeight;
+
+        if (showDot && dotSize >= 2)
+        {
+            _visibleLeft = Math.Min(_visibleLeft, dotLeft);
+            _visibleRight = Math.Max(_visibleRight, dotLeft + dotSize);
+            _visibleBottom = Math.Max(_visibleBottom, dotSize);
+        }
+
+        if (panelWidth >= 2 && panelHeight >= 2)
+        {
+            _visibleLeft = Math.Min(_visibleLeft, panelLeft);
+            _visibleTop = Math.Min(_visibleTop, panelTop);
+            _visibleRight = Math.Max(_visibleRight, panelLeft + panelWidth);
+            _visibleBottom = Math.Max(_visibleBottom, panelTop + panelHeight);
+        }
+
+        if (showSide)
+        {
+            _visibleLeft = Math.Min(_visibleLeft, sideLeft);
+            _visibleTop = Math.Min(_visibleTop, panelTop);
+            _visibleRight = Math.Max(_visibleRight, sideLeft + sideWidth);
+            _visibleBottom = Math.Max(_visibleBottom, panelTop + sideHeight);
+        }
+
         // 这行在动画期间是**逐帧**走的：字符串插值发生在调用之前，所以先看开关，别白造字符串。
         if (Diagnostics.IsEnabled)
         {
@@ -317,8 +365,6 @@ internal sealed class IslandWindowStyler
             var panelRadius = (int)Math.Round((10 + ((_options.ExpandedCornerRadius - 10) * progress)) * _scale);
             panelRadius = Math.Max(1, Math.Min(panelRadius, Math.Min(panelWidth, panelHeight) / 2));
 
-            var panelTop = (int)Math.Round(_options.PanelTop * _scale);
-
             var panelRegion = NativeMethods.CreateRoundRectRgn(
                 panelLeft,
                 panelTop,
@@ -340,7 +386,7 @@ internal sealed class IslandWindowStyler
             var sideRadius = (int)Math.Round(_options.ExpandedCornerRadius * _scale);
             sideRadius = Math.Max(1, Math.Min(sideRadius, Math.Min(sideWidth, sideHeight) / 2));
 
-            var sideTop = (int)Math.Round(_options.PanelTop * _scale);
+            var sideTop = panelTop;
 
             var sideRegion = NativeMethods.CreateRoundRectRgn(
                 sideLeft,
@@ -372,7 +418,16 @@ internal sealed class IslandWindowStyler
         exStyle |= NativeMethods.WS_EX_NOACTIVATE;
         NativeMethods.SetWindowLongPtr(_hwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(exStyle));
 
+        // 置顶要在窗口**真正显示之后**再应用一次：
+        // 构造阶段设的 IsAlwaysOnTop 在窗口还没显示时可能不生效（或随 WinUI 首次显示时的
+        // 默认窗口状态一起被冲掉）。显示之后重新设置，presenter 的内部状态才和窗口实际样式一致。
+        if (_presenter is not null)
+        {
+            _presenter.IsAlwaysOnTop = true;
+        }
+
         ReassertTopMost();
+        StartTopMostWatchdog();
 
         // 从这一刻起，任何试图移动/缩放窗口的动作都会被拦回钉好的位置。
         _positionLocked = true;
@@ -389,7 +444,103 @@ internal sealed class IslandWindowStyler
             0,
             NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_SHOWWINDOW);
 
-    /// <summary>窗口关闭时摘掉子类化，避免回调打到已销毁的窗口。</summary>
+    /// <summary>
+    /// 「始终置顶」的看门狗：低频检查、被压住就把窗口重新顶回置顶层。
+    ///
+    /// 为什么需要它：WS_EX_TOPMOST 只保证「在所有**普通**窗口之上」而已。
+    /// 同属置顶层的窗口（桌面歌词、各种悬浮工具、别的「置顶」窗口）后出现、或被激活时，
+    /// 会插到岛的前面，把岛压住 —— 这时岛看起来就像「没能置顶」。
+    /// 每 2 秒检查一次：一旦发现岛被可见窗口盖住（或 TOPMOST 位丢了），就 SetWindowPos(HWND_TOPMOST) 顶回来。
+    ///
+    /// 为什么是轮询而不是订阅事件：Windows 没有「有窗口插到我前面」的通知；
+    /// 又不能用 <c>SetWinEventHook</c> 那种全局钩子（要注入别的进程、还容易被杀软当成外挂）。
+    /// 轮询只读 Z 序 + 几条窗口矩形，2 秒一次可以忽略不计。
+    /// </summary>
+    private void StartTopMostWatchdog()
+    {
+        if (_topMostWatchdog is not null)
+        {
+            return;
+        }
+
+        _topMostWatchdog = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _topMostWatchdog.Tick += OnTopMostWatchdogTick;
+        _topMostWatchdog.Start();
+    }
+
+    private void OnTopMostWatchdogTick(object? sender, object e)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        var topMostMissing = (NativeMethods.GetWindowLongPtr(_hwnd, NativeMethods.GWL_EXSTYLE).ToInt64()
+                              & NativeMethods.WS_EX_TOPMOST) == 0;
+
+        // 已经在最上层、也没被挡住，就什么都不做（避免无意义的 Z 序变更）。
+        if (!topMostMissing && !IsCoveredByVisibleWindow())
+        {
+            return;
+        }
+
+        // 被压住了：presenter 状态可能还被别的操作改过，先同步再 SetWindowPos。
+        if (_presenter is not null && (_presenter.IsAlwaysOnTop is false))
+        {
+            _presenter.IsAlwaysOnTop = true;
+        }
+
+        ReassertTopMost();
+
+        Diagnostics.Log($"topmost[watchdog]: 被压住（topmost 位丢失={topMostMissing}）→ 重新压回置顶层");
+    }
+
+    /// <summary>
+    /// 岛（看得见的那几块）是不是被 Z 序里**排在它上面**的可见窗口真的压住了。
+    /// 只看「有没有窗口在上面」不行：任务栏、系统 tooltip 这些置顶窗口常年挂在最上面，
+    /// 虽然排在岛前面但根本不和岛重叠，那样看门狗会每 2 秒白顶一次。
+    /// 所以这里做矩形相交判断，只有真的盖到岛身上才重新置顶。
+    /// </summary>
+    private bool IsCoveredByVisibleWindow()
+    {
+        if (_visibleRight <= _visibleLeft || _visibleBottom <= _visibleTop)
+        {
+            return false;
+        }
+
+        // 岛可见轮廓的屏幕矩形（窗口坐标 + 窗口位置）。
+        var left = _x + _visibleLeft;
+        var top = _y + _visibleTop;
+        var right = _x + _visibleRight;
+        var bottom = _y + _visibleBottom;
+
+        for (var above = NativeMethods.GetWindow(_hwnd, NativeMethods.GW_HWNDPREV);
+             above != IntPtr.Zero;
+             above = NativeMethods.GetWindow(above, NativeMethods.GW_HWNDPREV))
+        {
+            // 不可见窗口（输入法 / MSCTF 的隐藏窗口常年挂在最上面一堆）不参与判断。
+            if (!NativeMethods.IsWindowVisible(above))
+            {
+                continue;
+            }
+
+            if (!NativeMethods.GetWindowRect(above, out var rect))
+            {
+                continue;
+            }
+
+            var overlaps = rect.Right > left && rect.Left < right
+                           && rect.Bottom > top && rect.Top < bottom;
+            if (overlaps)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>窗口关闭时摘掉子类化、停掉看门狗，避免回调打到已销毁的窗口。</summary>
     public void Detach()
     {
         if (_disposed)
@@ -398,6 +549,13 @@ internal sealed class IslandWindowStyler
         }
 
         _disposed = true;
+
+        if (_topMostWatchdog is not null)
+        {
+            _topMostWatchdog.Stop();
+            _topMostWatchdog.Tick -= OnTopMostWatchdogTick;
+            _topMostWatchdog = null;
+        }
 
         if (_subclassInstalled)
         {
@@ -454,5 +612,4 @@ internal sealed class IslandWindowStyler
     }
 
     // TODO(扩展): 多显示器场景下「跟随当前主屏」的策略（现在固定钉在主屏顶部居中）。
-    // TODO(扩展): 如果出现别的置顶窗口压在岛上，可以加一个低频定时器重新 ReassertTopMost()。
 }
