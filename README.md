@@ -42,9 +42,10 @@
   并把解压内核扩展到 `.7z / .rar / .tar / .tar.gz / .xz / .bz2` 且带进度条；网站首屏主按钮和 `releases/latest` 都指向它。
 * **稳定版（功能向）**：tag `v5.0.0-NewFeatures` —— 在 4.0.0 基础上加拖拽解压（`.zip`），同样标记为非 Pre-release。
 * **旧版**：tag `v4.0.0-beta` —— 仅保留历史，不再推荐。
-* **预发行 / 测试版（音乐岛）**：tag `v6.0.0-music-beta` —— 音乐控制（对着汽水音乐实测）：播放时收起态胶囊变成音乐胶囊，
-  悬停展开是「看板在左 + 音乐副岛在右」（支持播放 / 暂停 / 上一首 / 下一首）；资源监测页重做为环形仪表 + 网络行；
-  并修复了「正计时 / 倒计时暂停后胶囊被音乐顶掉」的问题。GitHub 上标为 Pre-release。详见「三、关键实现点 → 音乐控制」。
+* **稳定测试版（推荐尝鲜）**：tag `v6.1.0-Always-on-top.FunctionFixed` —— 在 6.0.0 音乐岛的基础上加了**置顶看门狗**
+  （被桌面歌词 / 悬浮工具等同样置顶的窗口压住时，2 秒内自动顶回最上层），并修正窗口显示后才应用 IsAlwaysOnTop 的时序问题；
+  GitHub 上标为 Pre-release（测试版）。
+* **不稳定测试版**：tag `v6.0.0-music-beta` —— 最早的音乐岛版本（置顶问题未修），仅作历史保留，建议直接用 6.1.0。
 * 「拖拽一开始就自动出现落点区」的**实验**做过三轮（WinEvent / 鼠标钩子 / 透明接收区），
   因安全前提下无法同时满足“即时 + 只认 zip + 零误触发”，已撤掉并删除实验分支，代码回到本版行为。
 * **已实现**：时间岛胶囊（时钟 / 监测区，宽度会随占用变化）；看板岛（指标 / 时间工具 / 设置 / 到点提醒
@@ -941,7 +942,13 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     ⑤ 实测（`CAPSYN_DROP_TEST`）：`sample.zip` 走 `unzip(zip)` 1 个文件 16 B、
     `sample.7z` 走 `unzip(tar)` 1 个文件 2844 B、`sample.tar.gz` 冲突时自动进 `sample\` 子目录，
     均显示「解压完成 + 路径 + 文件数」，无崩溃。
-  * `v6.0.0-music-beta`（**预发行 · 测试版**：tag `v6.0.0-music-beta` + Release asset）—— **音乐控制 / 音乐岛**：
+  * `v6.1.0-Always-on-top.FunctionFixed`（**稳定 · 测试版**：tag + Release asset）—— **置顶看门狗**：
+    ① 保留 `OverlappedPresenter` 引用，窗口显示之后再设一次 `IsAlwaysOnTop`（构造阶段那次在真正显示前不一定生效）；
+    ② 新增 2 秒一次的置顶看门狗：沿 Z 序往上遍历，只要有可见窗口与岛**当前可见轮廓**
+    （胶囊 / 小圆 / 看板 / 音乐副岛的包围盒）相交，就 `SetWindowPos(HWND_TOPMOST)` 顶回最上层；TOPMOST 位丢了也会补回；
+    ③ 用矩形相交而不是「上面有没有窗口」，避免和任务栏 / tooltip 这类不重叠的置顶窗口每 2 秒空打架；
+    ④ 附带 6.0.0 全部音乐岛能力与「计时暂停后胶囊被音乐顶掉」的修复；自包含打包 82 MB（sha256 `0aca2065…`）。
+  * `v6.0.0-music-beta`（**不稳定 · 测试版**：tag + Release asset）—— **音乐控制 / 音乐岛**：
     ① 新增 `Services/MediaMonitor.cs`：订阅系统媒体会话（SMTC），拿到歌名 / 歌手 / 专辑 / 封面 / 播放状态 / 时长，
     并把播放暂停 / 上一首 / 下一首发回去（`TryTogglePlayPauseAsync` / `TrySkipNextAsync` / `TrySkipPreviousAsync`）；
     ② **收起态胶囊变成音乐胶囊**（`♪ 歌名` + 播放/暂停状态）；展开态是「看板在左 + **音乐副岛在右**」（副岛 340×210，`MusicSideWidth/MusicSideHeight/MusicSideGap`，出现时看板整体左移让整组居中；窗口区域变成 胶囊∪小圆∪看板∪副岛，改完窗口画布宽约 1012）；
