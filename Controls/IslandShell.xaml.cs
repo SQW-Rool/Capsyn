@@ -85,6 +85,9 @@ public sealed partial class IslandShell : UserControl
 
     /// <summary>当前有没有可用的媒体会话（决定胶囊内容 & 右侧副岛是否出现）。</summary>
     private bool _musicAvailable;
+
+    /// <summary>副岛是不是正开着「音源选择」视图（没有音乐时也能把它打开）。</summary>
+    private bool _sourcePickerOpen;
     private bool _expanded;
     private bool _shapeSyncRunning;
     private bool _ready;
@@ -210,6 +213,10 @@ public sealed partial class IslandShell : UserControl
         Dashboard.ExitRequested += OnExitRequested;
         Dashboard.PreferredPanelHeightChanged += OnPreferredPanelHeightChanged;
         Dashboard.KeepExpandedChanged += OnDashboardKeepExpandedChanged;
+        Dashboard.MusicSourceRequested += OnMusicSourceRequested;
+        MusicIsland.SourceSelected += OnMusicSourceSelected;
+        MusicIsland.PickerClosed += OnMusicPickerClosed;
+        Dashboard.SetMusicButtonVisible(!_media.Current.IsAvailable);
 
         _panelSpring.Reset(0);
         _heightSpring.Reset(_options.ExpandedHeight);
@@ -837,10 +844,93 @@ public sealed partial class IslandShell : UserControl
         // 收起态胶囊：计时/闹钟在跑时优先显示计时，不被音乐顶掉。
         UpdatePillContent();
 
+        // 没有音乐播放时，看板右下角才出现「音源」按钮。
+        Dashboard.SetMusicButtonVisible(!_musicAvailable);
+
         if (wasAvailable != _musicAvailable)
         {
+            // 音乐出现了：音源面板自动切回播放器视图。
+            if (_musicAvailable && _sourcePickerOpen)
+            {
+                SetSourcePickerOpen(false);
+            }
+
             StartShapeSync();
             Diagnostics.Log($"music island: {( _musicAvailable ? "出现" : "收起")}");
+        }
+    }
+
+    // ---------------- 音源选择 ----------------
+
+    private void OnMusicSourceRequested()
+    {
+        SetSourcePickerOpen(true);
+    }
+
+    private void OnMusicSourceSelected(string id)
+    {
+        // 「自动跟随」：清掉手动选择，回到系统当前会话。
+        if (id == "auto")
+        {
+            _media?.SelectSource(null);
+            MusicIsland.UpdateSelection();
+            _ = ClosePickerWhenPlayingAsync();
+            StartShapeSync();
+            return;
+        }
+
+        var status = MediaSourceCatalog.FindStatus(id);
+
+        _media?.SelectSource(id);
+        MusicIsland.UpdateSelection();
+
+        // 装了但没在跑：顺手拉起来，等它的 SMTC 会话出现后再切回播放器视图。
+        if (status is { IsInstalled: true, IsRunning: false })
+        {
+            MediaSourceCatalog.TryLaunch(status);
+            _media?.RefreshSource();
+        }
+
+        _ = ClosePickerWhenPlayingAsync();
+        StartShapeSync();
+    }
+
+    private void OnMusicPickerClosed()
+    {
+        SetSourcePickerOpen(false);
+    }
+
+    /// <summary>打开 / 关闭副岛的「音源选择」视图，并驱动副岛滑出或收回。</summary>
+    private void SetSourcePickerOpen(bool open)
+    {
+        if (_sourcePickerOpen == open)
+        {
+            return;
+        }
+
+        _sourcePickerOpen = open;
+        MusicIsland.ShowSourcePicker(open);
+        StartShapeSync();
+        Diagnostics.Log($"music source: picker {(open ? "打开" : "关闭")}");
+    }
+
+    /// <summary>选完音源后有一小段异步：等它的会话上来就把面板切回播放器。</summary>
+    private async Task ClosePickerWhenPlayingAsync()
+    {
+        for (var i = 0; i < 12; i++)
+        {
+            await Task.Delay(250);
+
+            if (!_sourcePickerOpen || _media is null)
+            {
+                return;
+            }
+
+            if (_media.Current.IsAvailable)
+            {
+                SetSourcePickerOpen(false);
+                return;
+            }
         }
     }
 
@@ -940,7 +1030,7 @@ public sealed partial class IslandShell : UserControl
 
         // 音乐副岛：看板先展开（progress > 0.8），再滑出；鼠标离开 / 收起都会让它往回收。
         var cursorInsideForMusic = IsCursorInsideIsland();
-        var slideTarget = _expanded && _musicAvailable && progress > 0.8 && cursorInsideForMusic ? 1.0 : 0.0;
+        var slideTarget = _expanded && (_musicAvailable || _sourcePickerOpen) && progress > 0.8 && cursorInsideForMusic ? 1.0 : 0.0;
         _musicSlideSpring.SetTarget(
             slideTarget,
             _options.SpringDampingRatio,

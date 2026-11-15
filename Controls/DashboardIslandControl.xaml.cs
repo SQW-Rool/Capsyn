@@ -139,6 +139,9 @@ public sealed partial class DashboardIslandControl : UserControl
     /// <summary>用户点了右下角的「关闭程序」。</summary>
     public event Action? ExitRequested;
 
+    /// <summary>点了「音源」按钮：请求把右侧副岛打开成音源选择。</summary>
+    public event Action? MusicSourceRequested;
+
     /// <summary>
     /// 当前视图想要多高的看板：(高度 DIP, 是否播弹簧动画)。
     /// 指标视图 350、时间工具视图 430；<see cref="IslandShell"/> 收到后改窗口区域。
@@ -608,6 +611,12 @@ public sealed partial class DashboardIslandControl : UserControl
     private void OnTimeToolsBackClick(object sender, RoutedEventArgs e) => SwitchTo(DashboardView.Metrics);
 
     /// <summary>⚙「设置」：push 到设置视图（铃声板块）。</summary>
+    private void OnMusicSourceClick(object sender, RoutedEventArgs e) => MusicSourceRequested?.Invoke();
+
+    /// <summary>外壳用：没有音乐播放时显示「音源」按钮，有音乐时隐藏。</summary>
+    public void SetMusicButtonVisible(bool visible)
+        => MusicSourceButton.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+
     private void OnSettingsClick(object sender, RoutedEventArgs e)
     {
         Diagnostics.Log("click: settings");

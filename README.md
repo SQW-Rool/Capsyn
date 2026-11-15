@@ -569,6 +569,18 @@ DashboardIslandControl.OnCloseClick
 
 **调试钩子**：`CAPSYN_MUSIC_TEST=1` 启动后自动展开看板并切到音乐视图（截图 / 自动验证用）。
 
+**音源选择（v6.2.0 新增，分支未发布）**：
+
+* **入口**：没有音乐播放时，看板右下角出现一个 **♪ 音源按钮** → 点它把右侧副岛打开成「音源选择」面板；
+  有音乐播放时，从副岛头部的「音源名 ⌄」也能进面板，面板左上角「← 返回」回到播放器。
+* **音源列表**：自动跟随 / 汽水音乐 / QQ音乐 / 网易云音乐 / 酷狗音乐 / 酷我音乐 / Spotify / Windows 媒体播放器。
+  本机没装的**置灰不可点**；装了但没运行的会显示「已安装」，选中时会尝试用探测到的 exe 启动它。
+* **探测**：`Services/MediaSourceCatalog.cs` —— 进程列表 → 卸载注册表（`DisplayName` / `InstallLocation` / `DisplayIcon`）→
+  App Paths → 常见安装目录；结果缓存 3 秒，打开面板时在后台线程重扫一次。
+* **切换**：选中后 `MediaMonitor` 只跟随该播放器的 SMTC 会话（按 `SourceAppUserModelId` 模糊匹配）；
+  偏好写进 `settings.json` 的 `PreferredMediaSource`，选「自动跟随」清空偏好；面板打开期间副岛保持显示（即使没有音乐）。
+* **调试**：`CAPSYN_NO_TOPMOST_WATCHDOG=1` 可关掉置顶看门狗（截图 / 录屏用，避免 2 秒一次的 `SetWindowPos` 让 `PrintWindow` 抓到黑帧）。
+
 ---
 
 ## 四、验收对照（实测结果）
@@ -942,6 +954,12 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     ⑤ 实测（`CAPSYN_DROP_TEST`）：`sample.zip` 走 `unzip(zip)` 1 个文件 16 B、
     `sample.7z` 走 `unzip(tar)` 1 个文件 2844 B、`sample.tar.gz` 冲突时自动进 `sample\` 子目录，
     均显示「解压完成 + 路径 + 文件数」，无崩溃。
+  * `v6.2.0-SourcePicker`（**分支 `feature/music-control`，未打 tag**）—— **音源选择**：
+    ① 看板右下角新增「♪ 音源」按钮（**只在没有音乐播放时出现**），点开把副岛切成音源面板；有音乐时副岛头部「音源名 ⌄」也能进；
+    ② 内置 7 个音源 + 「自动跟随」：汽水音乐 / QQ音乐 / 网易云音乐 / 酷狗音乐 / 酷我音乐 / Spotify / Windows 媒体播放器；
+    ③ 本机没装的置灰（`MediaSourceCatalog` 探测进程 / 卸载注册表 / App Paths / 常见目录，缓存 3 秒）；
+    ④ 选中后 `MediaMonitor` 只跟随该音源的 SMTC 会话，没在运行则尝试启动；选择持久化到 `settings.json`；
+    ⑤ 实测：未安装的 Spotify / Windows 媒体播放器正确置灰；选汽水音乐后自动挂上它的会话并切回播放器视图。
   * `v6.1.0-Always-on-top.FunctionFixed`（**稳定 · 测试版**：tag + Release asset）—— **置顶看门狗**：
     ① 保留 `OverlappedPresenter` 引用，窗口显示之后再设一次 `IsAlwaysOnTop`（构造阶段那次在真正显示前不一定生效）；
     ② 新增 2 秒一次的置顶看门狗：沿 Z 序往上遍历，只要有可见窗口与岛**当前可见轮廓**

@@ -38,6 +38,9 @@ public sealed class AppSettings
     /// <summary>倒计时自定义音频文件（绝对路径；null = 用内置音效）。</summary>
     public string? CountdownCustomFile { get; set; }
 
+    /// <summary>音乐岛选定的音源 id（null = 自动跟随系统当前会话）。</summary>
+    public string? PreferredMediaSource { get; set; }
+
     /// <summary>设置文件路径（诊断日志里会打出来，方便用户自己看/删）。</summary>
     public static string FilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

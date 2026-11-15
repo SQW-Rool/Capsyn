@@ -8,9 +8,10 @@
     mc:Ignorable="d">
 
     <!--
-        音乐副岛：音乐播放时出现在看板右侧的独立小岛（340 宽，与看板等高）。
-        内容按「垂直居中」排：大封面 + 歌名/歌手 + 进度 + 控制按钮，
-        背景是专辑封面光晕。数据来自 IslandShell 注入的 MediaMonitor。
+        音乐副岛：看板右侧的独立小岛（340 宽，与看板等高）。
+        两个视图：
+          * 播放器：封面 / 歌名 / 歌手 / 进度 / 控制；头部右侧是「音源名 ▾」，点它切到音源选择；
+          * 音源选择：内置播放器列表（本机没装的置灰），选中后只跟随该音源；没有音乐时也是这个视图。
     -->
     <Grid Padding="14">
 
@@ -33,7 +34,7 @@
             </Border>
         </Grid>
 
-        <!-- 头部：状态 + 均衡器 + 来源 -->
+        <!-- 头部：状态 + 均衡器｜音源按钮 / 返回 -->
         <Grid Grid.Row="0">
             <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                 <TextBlock
@@ -56,17 +57,60 @@
                 </StackPanel>
             </StackPanel>
 
-            <TextBlock
-                x:Name="SourceText"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Center"
-                Style="{StaticResource HeroCaption}"
-                TextTrimming="CharacterEllipsis"
-                MaxWidth="150" />
+            <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button
+                    x:Name="SourceButton"
+                    Style="{StaticResource GhostCaptionButton}"
+                    Click="OnSourceButtonClick"
+                    AutomationProperties.AutomationId="SourceButton"
+                    AutomationProperties.Name="选择音源">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock
+                            x:Name="SourceText"
+                            Style="{StaticResource HeroCaption}"
+                            TextTrimming="CharacterEllipsis"
+                            MaxWidth="132"
+                            VerticalAlignment="Center" />
+                        <Path
+                            Width="7"
+                            Height="7"
+                            Stretch="Uniform"
+                            VerticalAlignment="Center"
+                            Stroke="{ThemeResource TextTertiaryBrush}"
+                            StrokeThickness="1.6"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round"
+                            Data="M 6,9 L 12,15 L 18,9" />
+                    </StackPanel>
+                </Button>
+
+                <Button
+                    x:Name="PickerBackButton"
+                    Style="{StaticResource GhostCaptionButton}"
+                    Click="OnPickerBackClick"
+                    Visibility="Collapsed"
+                    AutomationProperties.AutomationId="PickerBackButton"
+                    AutomationProperties.Name="返回播放器">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <Path
+                            Width="9"
+                            Height="9"
+                            Stretch="Uniform"
+                            VerticalAlignment="Center"
+                            Stroke="{ThemeResource TextSecondaryBrush}"
+                            StrokeThickness="1.6"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round"
+                            Data="M 15,6 L 9,12 L 15,18" />
+                        <TextBlock Text="返回" Style="{StaticResource HeroCaption}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
         </Grid>
 
-        <!-- 主体：垂直居中（封面 → 歌名 → 歌手 → 进度 → 控制） -->
+        <!-- 视图 1：播放器 -->
         <StackPanel
+            x:Name="PlayerLayer"
             Grid.Row="1"
             VerticalAlignment="Center"
             HorizontalAlignment="Stretch"
@@ -118,7 +162,7 @@
             <!-- 歌手 -->
             <TextBlock
                 x:Name="ArtistText"
-                Text="打开播放器后自动显示"
+                Text="点右上角选音源"
                 FontSize="13"
                 Foreground="{ThemeResource TextSecondaryBrush}"
                 HorizontalAlignment="Center"
@@ -220,5 +264,37 @@
                 </Button>
             </StackPanel>
         </StackPanel>
+
+        <!-- 视图 2：音源选择 -->
+        <Grid x:Name="PickerLayer" Grid.Row="1" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock
+                Grid.Row="0"
+                Text="选一个音源：置灰的就是本机没装"
+                Style="{StaticResource HeroCaption}"
+                TextWrapping="Wrap"
+                Margin="0,2,0,4" />
+
+            <ScrollViewer
+                Grid.Row="1"
+                VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="SourceList" Spacing="4" />
+            </ScrollViewer>
+
+            <TextBlock
+                x:Name="PickerHint"
+                Grid.Row="2"
+                Text="选中后会切换；没在运行会尝试帮你启动"
+                Style="{StaticResource HeroCaption}"
+                Opacity="0.75"
+                TextWrapping="Wrap"
+                Margin="0,4,0,0" />
+        </Grid>
     </Grid>
 </UserControl>

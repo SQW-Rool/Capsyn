@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Capsyn.Configuration;
 using Microsoft.UI.Dispatching;
 using Windows.Media.Control;
 
@@ -60,6 +61,9 @@ public sealed class MediaMonitor : IDisposable
     private GlobalSystemMediaTransportControlsSessionManager? _manager;
     private GlobalSystemMediaTransportControlsSession? _session;
 
+    /// <summary>用户选定的音源 id（null = 自动跟随系统当前会话）。</summary>
+    private string? _preferredSourceId = AppSettings.Current.PreferredMediaSource;
+
     private MediaSnapshot _current = MediaSnapshot.Empty;
     private DateTimeOffset _timelineUpdatedAt = DateTimeOffset.MinValue;
     private TimeSpan _timelinePosition;
@@ -79,6 +83,36 @@ public sealed class MediaMonitor : IDisposable
     /// 带上 key 是为了让 UI 丢掉迟到的旧封面（播放器切歌时异步读图会乱序）。
     /// </summary>
     public event Action<byte[]?, string>? ArtworkChanged;
+
+    /// <summary>挂上的会话换了来源（或从有到无 / 从无到有）—— 音源面板用来刷新选中态。</summary>
+    public event Action? SourceChanged;
+
+    /// <summary>用户选定的音源 id（null = 自动）。</summary>
+    public string? PreferredMediaSourceId => _preferredSourceId;
+
+    /// <summary>
+    /// 选定音源：之后只跟随这个播放器的 SMTC 会话；null 表示恢复「跟随系统当前会话」。
+    /// 选择会写进 settings.json，下次启动继续用。
+    /// </summary>
+    public void SelectSource(string? id)
+    {
+        _preferredSourceId = string.IsNullOrWhiteSpace(id) ? null : id;
+
+        AppSettings.Current.PreferredMediaSource = _preferredSourceId;
+        AppSettings.Current.Save();
+
+        Diagnostics.Log($"media source: 选定 {_preferredSourceId ?? "(自动)"}");
+
+        AttachSession(PickSession());
+        SourceChanged?.Invoke();
+    }
+
+    /// <summary>音源刚被启动 / 会话列表刚变化时，重新按偏好挑一次会话。</summary>
+    public void RefreshSource()
+    {
+        AttachSession(PickSession());
+        SourceChanged?.Invoke();
+    }
 
     /// <summary>当前快照。</summary>
     public MediaSnapshot Current => _current;
@@ -113,8 +147,8 @@ public sealed class MediaMonitor : IDisposable
             _manager.SessionsChanged += OnSessionsChanged;
             _manager.CurrentSessionChanged += OnCurrentSessionChanged;
 
-            Diagnostics.Log($"media: 已连接（当前会话数 {_manager.GetSessions().Count}）");
-            AttachSession(_manager.GetCurrentSession());
+            Diagnostics.Log($"media: 已连接（当前会话数 {_manager.GetSessions().Count}，音源 {_preferredSourceId ?? "自动"}）");
+            AttachSession(PickSession());
         }
         catch (Exception ex)
         {
@@ -219,12 +253,25 @@ public sealed class MediaMonitor : IDisposable
     // ---------------- 事件 ----------------
 
     private void OnSessionsChanged(GlobalSystemMediaTransportControlsSessionManager sender, SessionsChangedEventArgs args)
-        => _ = RefreshAsync();
+    {
+        if (ReattachIfNeeded())
+        {
+            return;
+        }
+
+        _ = RefreshAsync();
+    }
 
     private void OnCurrentSessionChanged(GlobalSystemMediaTransportControlsSessionManager sender, CurrentSessionChangedEventArgs args)
     {
         try
         {
+            // 选定了音源就以偏好为准；否则跟随系统当前会话。
+            if (ReattachIfNeeded())
+            {
+                return;
+            }
+
             AttachSession(sender.GetCurrentSession());
         }
         catch (Exception ex)
@@ -232,6 +279,54 @@ public sealed class MediaMonitor : IDisposable
             Diagnostics.Log($"media: 切换当前会话失败：{ex.Message}");
             _ = ReinitializeAsync();
         }
+    }
+
+    /// <summary>挑一次会话；返回 true 表示已经（重新）挂上，调用方不用再刷新。</summary>
+    private bool ReattachIfNeeded()
+    {
+        if (_manager is null)
+        {
+            return false;
+        }
+
+        var desired = PickSession();
+        if (ReferenceEquals(desired, _session))
+        {
+            return false;
+        }
+
+        AttachSession(desired);
+        return true;
+    }
+
+    /// <summary>
+    /// 按偏好挑会话：选了音源就只认匹配它的会话（没有就返回 null，让 UI 显示「等待播放」）；
+    /// 没选就跟随系统当前会话，再不行取第一个。
+    /// </summary>
+    private GlobalSystemMediaTransportControlsSession? PickSession()
+    {
+        if (_manager is null)
+        {
+            return null;
+        }
+
+        var sessions = _manager.GetSessions();
+        var definition = MediaSourceCatalog.Find(_preferredSourceId);
+
+        if (definition is not null)
+        {
+            foreach (var session in sessions)
+            {
+                if (MediaSourceCatalog.Matches(definition, session.SourceAppUserModelId))
+                {
+                    return session;
+                }
+            }
+
+            return null;
+        }
+
+        return _manager.GetCurrentSession() ?? (sessions.Count > 0 ? sessions[0] : null);
     }
 
     private void OnMediaPropertiesChanged(GlobalSystemMediaTransportControlsSession sender, MediaPropertiesChangedEventArgs args)

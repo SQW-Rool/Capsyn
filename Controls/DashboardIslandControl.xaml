@@ -915,13 +915,32 @@
             Visibility="Collapsed"
             Background="{ThemeResource DividerBrush}" />
 
-        <!-- 右下角：「设置」「关闭程序」；看板高度变化时整层跟着底边上下滑 -->
+        <!-- 右下角：「音源」「设置」「关闭程序」；看板高度变化时整层跟着底边上下滑 -->
         <StackPanel
             x:Name="FooterLayer"
             Orientation="Horizontal"
             Spacing="12"
             HorizontalAlignment="Right"
             VerticalAlignment="Bottom">
+
+            <!-- 音源选择：只在「没有音乐播放」时出现，点开后右侧副岛变成音源列表 -->
+            <Button
+                x:Name="MusicSourceButton"
+                Style="{StaticResource IconButton}"
+                Visibility="Collapsed"
+                Click="OnMusicSourceClick"
+                AutomationProperties.AutomationId="MusicSourceButton"
+                AutomationProperties.Name="选择音源">
+                <Path
+                    Width="{ThemeResource IconSizeStandard}"
+                    Height="{ThemeResource IconSizeStandard}"
+                    Stretch="Uniform"
+                    Stroke="{ThemeResource TextPrimaryBrush}"
+                    StrokeThickness="{ThemeResource IconStrokeThickness}"
+                    StrokeStartLineCap="Round"
+                    StrokeEndLineCap="Round"
+                    Data="M 9,18 V 6 L 20,4 V 15 M 6.2,19.8 A 2.6,2.6 0 1 0 6.19,19.8 M 17.2,16.8 A 2.6,2.6 0 1 0 17.19,16.8" />
+            </Button>
 
             <!-- 设置：打开设置视图（铃声板块） -->
             <Button

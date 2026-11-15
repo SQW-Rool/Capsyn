@@ -65,6 +65,16 @@
             <Setter Property="BorderBrush" Value="{ThemeResource CriticalTintStrongBrush}" />
         </Style>
 
+        <!-- 音乐岛头部的小号文字按钮（「音源名 ▾」/「← 返回」）：透明底、无边框，只做 hover 反馈 -->
+        <Style x:Key="GhostCaptionButton" TargetType="Button">
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusSmall}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
         <!-- 带文字的功能按钮：「时间工具」和三个工具按钮共用 -->
         <Style x:Key="ToolButton" TargetType="Button">
             <Setter Property="Padding" Value="{ThemeResource SpacingInsetMedium}" />
