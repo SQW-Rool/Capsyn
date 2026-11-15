@@ -41,6 +41,12 @@ public sealed class AppSettings
     /// <summary>音乐岛选定的音源 id（null = 自动跟随系统当前会话）。</summary>
     public string? PreferredMediaSource { get; set; }
 
+    /// <summary>
+    /// 播放冲突处理策略：0 = 独占播放（新播放器开始时自动暂停其它正在放的），
+    /// 1 = 仅提醒，2 = 关闭。见 <see cref="Capsyn.Services.PlaybackConflictPolicy"/>。
+    /// </summary>
+    public int PlaybackConflictPolicy { get; set; }
+
     /// <summary>设置文件路径（诊断日志里会打出来，方便用户自己看/删）。</summary>
     public static string FilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

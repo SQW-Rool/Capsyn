@@ -114,6 +114,7 @@ public sealed partial class DashboardIslandControl : UserControl
         ViewModel.PropertyChanged += OnMetricsPropertyChanged;
 
         Loaded += OnLoaded;
+        Loaded += (_, _) => UpdateConflictPolicyChips();
         Unloaded += OnUnloaded;
 
         // Phase 2/3：给这几个图标按钮挂统一指针反馈（hover 放大 / 按下缩小，Composition 隐式动画）
@@ -620,7 +621,36 @@ public sealed partial class DashboardIslandControl : UserControl
     private void OnSettingsClick(object sender, RoutedEventArgs e)
     {
         Diagnostics.Log("click: settings");
+        UpdateConflictPolicyChips();
         SwitchTo(DashboardView.Settings);
+    }
+
+    // ---------------- 播放冲突设置 ----------------
+
+    private void OnConflictPolicyClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string tag } || !int.TryParse(tag, out var value))
+        {
+            return;
+        }
+
+        AppSettings.Current.PlaybackConflictPolicy = Math.Clamp(value, 0, 2);
+        AppSettings.Current.Save();
+        UpdateConflictPolicyChips();
+        Diagnostics.Log($"settings: playback conflict policy = {value}");
+    }
+
+    /// <summary>把三个「播放冲突」胶囊按当前设置高亮（选中项用强调色）。</summary>
+    private void UpdateConflictPolicyChips()
+    {
+        var policy = (PlaybackConflictPolicy)AppSettings.Current.PlaybackConflictPolicy;
+        var soft = Res("AccentTintSoftBrush");
+        var strong = Res("AccentTintStrongBrush");
+        var text = Res("AccentTextBrush");
+
+        ApplyChipVisual(ConflictPolicyExclusive, policy == PlaybackConflictPolicy.Exclusive, soft, strong, text);
+        ApplyChipVisual(ConflictPolicyPrompt, policy == PlaybackConflictPolicy.Prompt, soft, strong, text);
+        ApplyChipVisual(ConflictPolicyOff, policy == PlaybackConflictPolicy.Off, soft, strong, text);
     }
 
     /// <summary>设置页「返回」：回指标视图。</summary>

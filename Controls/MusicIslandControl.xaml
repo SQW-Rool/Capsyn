@@ -55,6 +55,34 @@
                     <Rectangle x:Name="Eq2" Width="2.5" Height="12" RadiusX="1.25" RadiusY="1.25" Fill="{ThemeResource AccentTextBrush}" VerticalAlignment="Bottom" />
                     <Rectangle x:Name="Eq3" Width="2.5" Height="12" RadiusX="1.25" RadiusY="1.25" Fill="{ThemeResource AccentTextBrush}" VerticalAlignment="Bottom" />
                 </StackPanel>
+
+                <!-- 播放冲突（仅提醒模式）：点一下暂停还在放的那个 -->
+                <Button
+                    x:Name="ConflictButton"
+                    Style="{StaticResource GhostCaptionButton}"
+                    Click="OnConflictPauseClick"
+                    Visibility="Collapsed"
+                    AutomationProperties.AutomationId="ConflictPauseButton"
+                    AutomationProperties.Name="暂停冲突的播放器">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <Path
+                            Width="10"
+                            Height="10"
+                            Stretch="Uniform"
+                            VerticalAlignment="Center"
+                            Stroke="{ThemeResource WarningTextBrush}"
+                            StrokeThickness="1.6"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round"
+                            Data="M 12,4 L 22,20 L 2,20 Z M 12,10 V 14 M 12,17 V 17.2" />
+                        <TextBlock
+                            x:Name="ConflictText"
+                            Text="暂停它"
+                            FontSize="10.5"
+                            Foreground="{ThemeResource WarningTextBrush}"
+                            VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Right" VerticalAlignment="Center">

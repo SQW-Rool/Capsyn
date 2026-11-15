@@ -36,6 +36,12 @@ public sealed partial class MusicIslandControl : UserControl
     private IReadOnlyList<MediaSourceStatus> _statuses = Array.Empty<MediaSourceStatus>();
     private int _sourceRefreshToken;
 
+    /// <summary>「仅提醒」模式下待处理的冲突 AUMID。</summary>
+    private string? _conflictAumid;
+
+    /// <summary>临时提示（例如「已暂停 汽水音乐」）的恢复定时器。</summary>
+    private DispatcherTimer? _noticeTimer;
+
     public MusicIslandControl()
     {
         InitializeComponent();
@@ -63,6 +69,9 @@ public sealed partial class MusicIslandControl : UserControl
     /// <summary>用户在音源面板点了「返回」（没有音乐时外壳可以借此收起副岛）。</summary>
     public event Action? PickerClosed;
 
+    /// <summary>「仅提醒」模式下用户点了「暂停它」：参数是冲突的 AUMID。</summary>
+    public event Action<string>? ConflictPauseRequested;
+
     /// <summary>当前是不是音源选择视图。</summary>
     public bool IsPickerOpen => _pickerOpen;
 
@@ -88,6 +97,8 @@ public sealed partial class MusicIslandControl : UserControl
             StateText.Text = "音源选择";
             BackdropLayer.Opacity = 0.55;
             Equalizer.Visibility = Visibility.Collapsed;
+            _noticeTimer?.Stop();
+            ClearConflictPrompt();
             _ = RefreshSourcesAsync();
         }
         else
@@ -104,6 +115,67 @@ public sealed partial class MusicIslandControl : UserControl
         if (_pickerOpen)
         {
             RenderSourceList();
+        }
+    }
+
+    // ---------------- 播放冲突提示 ----------------
+
+    /// <summary>「仅提醒」模式：在头部显示「暂停 <播放器>」按钮。</summary>
+    public void ShowConflictPrompt(string loserName, string aumid)
+    {
+        if (_pickerOpen)
+        {
+            return;
+        }
+
+        _conflictAumid = aumid;
+        ConflictText.Text = $"暂停 {loserName}";
+        ConflictButton.Visibility = Visibility.Visible;
+    }
+
+    public void ClearConflictPrompt()
+    {
+        _conflictAumid = null;
+        ConflictButton.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>独占模式暂停了别的播放器后，短暂提示一下（例如「已暂停 汽水音乐」）。</summary>
+    public void FlashNotice(string text, int durationMs = 3200)
+    {
+        if (_pickerOpen)
+        {
+            return;
+        }
+
+        StateText.Text = text;
+
+        _noticeTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(durationMs) };
+        _noticeTimer.Stop();
+
+        if (_noticeTimer.Interval != TimeSpan.FromMilliseconds(durationMs))
+        {
+            _noticeTimer.Interval = TimeSpan.FromMilliseconds(durationMs);
+        }
+
+        _noticeTimer.Tick -= OnNoticeTimerTick;
+        _noticeTimer.Tick += OnNoticeTimerTick;
+        _noticeTimer.Start();
+    }
+
+    private void OnNoticeTimerTick(object? sender, object e)
+    {
+        _noticeTimer?.Stop();
+        ApplySnapshotToPlayer();
+    }
+
+    private void OnConflictPauseClick(object sender, RoutedEventArgs e)
+    {
+        var aumid = _conflictAumid;
+        ClearConflictPrompt();
+
+        if (aumid is not null)
+        {
+            ConflictPauseRequested?.Invoke(aumid);
         }
     }
 

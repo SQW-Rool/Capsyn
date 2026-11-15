@@ -678,6 +678,61 @@
                     Style="{StaticResource PresetChip}"
                     Click="OnCountdownCustomClick" />
             </Grid>
+
+            <!-- 播放冲突：两个播放器同时出声时怎么办 -->
+            <Grid Grid.Row="9" Margin="0,16,0,0" VerticalAlignment="Top">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock
+                        Text="播放冲突"
+                        FontSize="{ThemeResource TypeBodySize}"
+                        FontWeight="{ThemeResource TypeStrongWeight}"
+                        Foreground="{ThemeResource TextPrimaryBrush}" />
+                    <TextBlock
+                        Text="两个播放器同时出声时怎么办"
+                        Style="{StaticResource HeroCaption}"
+                        VerticalAlignment="Center" />
+                </StackPanel>
+
+                <Grid Grid.Row="1" Margin="0,8,0,0" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button
+                        x:Name="ConflictPolicyExclusive"
+                        Grid.Column="0"
+                        Style="{StaticResource PresetChip}"
+                        Content="独占播放"
+                        Click="OnConflictPolicyClick"
+                        Tag="0"
+                        AutomationProperties.AutomationId="ConflictPolicyExclusive" />
+
+                    <Button
+                        x:Name="ConflictPolicyPrompt"
+                        Grid.Column="1"
+                        Style="{StaticResource PresetChip}"
+                        Content="仅提醒"
+                        Click="OnConflictPolicyClick"
+                        Tag="1"
+                        AutomationProperties.AutomationId="ConflictPolicyPrompt" />
+
+                    <Button
+                        x:Name="ConflictPolicyOff"
+                        Grid.Column="2"
+                        Style="{StaticResource PresetChip}"
+                        Content="关闭"
+                        Click="OnConflictPolicyClick"
+                        Tag="2"
+                        AutomationProperties.AutomationId="ConflictPolicyOff" />
+                </Grid>
+            </Grid>
         </Grid>
 
         <!-- ==================== 视图 4：到点提醒（倒计时 / 闹钟响了） ==================== -->

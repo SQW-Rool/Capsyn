@@ -88,6 +88,10 @@ public sealed partial class IslandShell : UserControl
 
     /// <summary>副岛是不是正开着「音源选择」视图（没有音乐时也能把它打开）。</summary>
     private bool _sourcePickerOpen;
+
+    /// <summary>播放冲突监测（独占播放 / 仅提醒 / 关闭）。</summary>
+    private PlaybackConflictGuard? _conflictGuard;
+
     private bool _expanded;
     private bool _shapeSyncRunning;
     private bool _ready;
@@ -209,6 +213,15 @@ public sealed partial class IslandShell : UserControl
         MusicIsland.AttachMedia(_media);
         _media.Changed += OnMediaChanged;
         _ = _media.InitializeAsync();
+
+        // 播放冲突监测：两个播放器同时出声时按设置处理（默认独占：暂停更早播放的）。
+        _conflictGuard = new PlaybackConflictGuard(
+            _media,
+            Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
+        _conflictGuard.ConflictResolved += OnPlaybackConflictResolved;
+        _conflictGuard.ConflictDetected += OnPlaybackConflictDetected;
+        _conflictGuard.Start();
+        MusicIsland.ConflictPauseRequested += OnConflictPauseRequested;
 
         Dashboard.ExitRequested += OnExitRequested;
         Dashboard.PreferredPanelHeightChanged += OnPreferredPanelHeightChanged;
@@ -358,6 +371,9 @@ public sealed partial class IslandShell : UserControl
             _media.Dispose();
             _media = null;
         }
+
+        _conflictGuard?.Dispose();
+        _conflictGuard = null;
 
         _dropTestTimer?.Stop();
         _dropTestTimer = null;
@@ -760,6 +776,10 @@ public sealed partial class IslandShell : UserControl
         }
         else
         {
+            // 收起：把音源面板和冲突提示都关掉，下次展开回到指标视图。
+            SetSourcePickerOpen(false);
+            MusicIsland.ClearConflictPrompt();
+
             _panelAnimator.Collapse();
             _panelSpring.SetTarget(0.0, _options.CollapseSpringDampingRatio, _options.CollapseSpringPeriod.TotalSeconds);
         }
@@ -898,6 +918,32 @@ public sealed partial class IslandShell : UserControl
     private void OnMusicPickerClosed()
     {
         SetSourcePickerOpen(false);
+    }
+
+    // ---------------- 播放冲突 ----------------
+
+    private void OnPlaybackConflictResolved(string winner, string loser)
+    {
+        MusicIsland.FlashNotice($"已暂停 {loser}");
+        Diagnostics.Log($"conflict guard: 提示已暂停 {loser}（{winner} 在播放）");
+    }
+
+    private void OnPlaybackConflictDetected(string loser, string winner, string aumid)
+    {
+        MusicIsland.ShowConflictPrompt(loser, aumid);
+    }
+
+    private async void OnConflictPauseRequested(string aumid)
+    {
+        MusicIsland.ClearConflictPrompt();
+
+        if (_conflictGuard is null)
+        {
+            return;
+        }
+
+        var ok = await _conflictGuard.PauseAsync(aumid);
+        Diagnostics.Log($"conflict guard: 手动暂停 {aumid} ok={ok}");
     }
 
     /// <summary>打开 / 关闭副岛的「音源选择」视图，并驱动副岛滑出或收回。</summary>

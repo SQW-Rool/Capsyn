@@ -42,6 +42,9 @@ public sealed record MediaSnapshot(
         : 0;
 }
 
+/// <summary>某一路 SMTC 会话的播放状态（播放冲突监测用）。</summary>
+public sealed record MediaSessionState(string Aumid, string DisplayName, bool IsPlaying);
+
 /// <summary>
 /// 系统媒体会话（SMTC）监听 + 控制。
 ///
@@ -119,6 +122,99 @@ public sealed class MediaMonitor : IDisposable
     {
         AttachSession(PickSession());
         SourceChanged?.Invoke();
+    }
+
+    // ---------------- 播放冲突监测（PlaybackConflictGuard 用） ----------------
+
+    /// <summary>当前所有 SMTC 会话的播放状态快照（读不到的会话跳过）。</summary>
+    public IReadOnlyList<MediaSessionState> GetSessionStates()
+    {
+        var manager = _manager;
+        if (manager is null)
+        {
+            return Array.Empty<MediaSessionState>();
+        }
+
+        var result = new List<MediaSessionState>();
+
+        try
+        {
+            foreach (var session in manager.GetSessions())
+            {
+                try
+                {
+                    var playing = session.GetPlaybackInfo()?.PlaybackStatus
+                                  == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+                    result.Add(new MediaSessionState(session.SourceAppUserModelId, FriendlyName(session.SourceAppUserModelId), playing));
+                }
+                catch
+                {
+                    // 会话刚好销毁：忽略
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Log($"media: 读会话状态失败：{ex.Message}");
+        }
+
+        return result;
+    }
+
+    /// <summary>暂停指定 AUMID 的会话（冲突处理用）。成功返回 true。</summary>
+    public async Task<bool> PauseSessionAsync(string aumid)
+    {
+        var manager = _manager;
+        if (manager is null)
+        {
+            return false;
+        }
+
+        foreach (var session in manager.GetSessions())
+        {
+            if (!string.Equals(session.SourceAppUserModelId, aumid, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            try
+            {
+                if (await session.TryPauseAsync())
+                {
+                    Diagnostics.Log($"media: 已暂停 {aumid}");
+                    return true;
+                }
+
+                // 有的播放器不支持 TryPauseAsync：退化成切换（当前是 Playing，切一下就是暂停）。
+                if (await session.TryTogglePlayPauseAsync())
+                {
+                    Diagnostics.Log($"media: 已暂停 {aumid}（toggle 兜底）");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Diagnostics.Log($"media: 暂停 {aumid} 失败：{ex.Message}");
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
+    /// <summary>AUMID → 好读的名字（音源目录里有的用中文名，否则用原始 id）。</summary>
+    private static string FriendlyName(string aumid)
+    {
+        foreach (var definition in MediaSourceCatalog.All)
+        {
+            if (MediaSourceCatalog.Matches(definition, aumid))
+            {
+                return definition.DisplayName;
+            }
+        }
+
+        return aumid;
     }
 
     /// <summary>当前快照。</summary>

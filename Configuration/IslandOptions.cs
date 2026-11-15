@@ -61,7 +61,7 @@ public sealed class IslandOptions
     public double ExpandedToolsHeight { get; init; } = 430;
 
     /// <summary>看板高度（DIP）：设置视图（铃声板块）。</summary>
-    public double ExpandedSettingsHeight { get; init; } = 360;
+    public double ExpandedSettingsHeight { get; init; } = 400;
 
     /// <summary>看板高度（DIP）：到点提醒视图（倒计时 / 闹钟响了）。</summary>
     public double ExpandedAlertHeight { get; init; } = 180;
