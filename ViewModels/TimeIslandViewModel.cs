@@ -15,6 +15,9 @@ public sealed class TimeIslandViewModel : ObservableObject
 {
     private readonly IslandOptions _options;
     private string _currentTime = string.Empty;
+    private string _clockMain = string.Empty;
+    private string _clockSeconds = string.Empty;
+    private string _dateLabel = string.Empty;
 
     public TimeIslandViewModel(IslandOptions options)
     {
@@ -32,6 +35,27 @@ public sealed class TimeIslandViewModel : ObservableObject
         private set => SetProperty(ref _currentTime, value);
     }
 
+    /// <summary>主时间（HH:mm），大字号显示。</summary>
+    public string ClockMain
+    {
+        get => _clockMain;
+        private set => SetProperty(ref _clockMain, value);
+    }
+
+    /// <summary>秒数（ss），小字号跟在主时间后面。</summary>
+    public string ClockSeconds
+    {
+        get => _clockSeconds;
+        private set => SetProperty(ref _clockSeconds, value);
+    }
+
+    /// <summary>日期标签（M月d日 周X）。</summary>
+    public string DateLabel
+    {
+        get => _dateLabel;
+        private set => SetProperty(ref _dateLabel, value);
+    }
+
     /// <summary>时间文字颜色（白）。</summary>
     public SolidColorBrush ForegroundBrush { get; }
 
@@ -45,5 +69,13 @@ public sealed class TimeIslandViewModel : ObservableObject
     /// 重新读取系统时间并推送绑定。
     /// 每次都重新取 <see cref="DateTime.Now"/>（而不是自己累加 1 秒），避免定时器抖动累积误差。
     /// </summary>
-    public void Refresh() => CurrentTime = DateTime.Now.ToString(_options.TimeFormat, CultureInfo.InvariantCulture);
+    public void Refresh()
+    {
+        var now = DateTime.Now;
+
+        CurrentTime = now.ToString(_options.TimeFormat, CultureInfo.InvariantCulture);
+        ClockMain = now.ToString("HH:mm", CultureInfo.InvariantCulture);
+        ClockSeconds = now.ToString("ss", CultureInfo.InvariantCulture);
+        DateLabel = now.ToString("M月d日 ddd", CultureInfo.GetCultureInfo("zh-CN"));
+    }
 }

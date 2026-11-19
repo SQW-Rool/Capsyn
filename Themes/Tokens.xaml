@@ -23,29 +23,29 @@
         <ResourceDictionary x:Key="Dark">
             <Color x:Key="IslandSurfaceColor">#FF000000</Color>
             <Color x:Key="IslandSurfaceScrimColor">#E6000000</Color>
-            <Color x:Key="CardBackgroundColor">#1AFFFFFF</Color>
-            <Color x:Key="CardBorderColor">#26FFFFFF</Color>
-            <Color x:Key="CardBorderStrongColor">#2EFFFFFF</Color>
-            <Color x:Key="DividerColor">#24FFFFFF</Color>
+            <Color x:Key="CardBackgroundColor">#14FFFFFF</Color>
+            <Color x:Key="CardBorderColor">#1CFFFFFF</Color>
+            <Color x:Key="CardBorderStrongColor">#30FFFFFF</Color>
+            <Color x:Key="DividerColor">#17FFFFFF</Color>
             <Color x:Key="TextPrimaryColor">#FFFFFFFF</Color>
-            <Color x:Key="TextSecondaryColor">#B3FFFFFF</Color>
-            <Color x:Key="TextTertiaryColor">#8CFFFFFF</Color>
-            <Color x:Key="SubtleHoverColor">#26FFFFFF</Color>
-            <Color x:Key="SubtlePressedColor">#33FFFFFF</Color>
-            <Color x:Key="SubtleBorderHoverColor">#4DFFFFFF</Color>
-            <Color x:Key="SubtleBorderPressedColor">#4DFFFFFF</Color>
+            <Color x:Key="TextSecondaryColor">#B8FFFFFF</Color>
+            <Color x:Key="TextTertiaryColor">#7AFFFFFF</Color>
+            <Color x:Key="SubtleHoverColor">#1FFFFFFF</Color>
+            <Color x:Key="SubtlePressedColor">#2BFFFFFF</Color>
+            <Color x:Key="SubtleBorderHoverColor">#45FFFFFF</Color>
+            <Color x:Key="SubtleBorderPressedColor">#45FFFFFF</Color>
             <Color x:Key="FocusStrokeColor">#FFFFFFFF</Color>
-            <Color x:Key="AccentColor">#0A84FF</Color>
-            <Color x:Key="AccentTextColor">#7AB8FF</Color>
-            <Color x:Key="SecondaryAccentColor">#BF5AF2</Color>
-            <Color x:Key="SecondaryAccentTextColor">#D3A6FF</Color>
-            <Color x:Key="SuccessColor">#30D158</Color>
-            <Color x:Key="WarningColor">#FF9F0A</Color>
-            <Color x:Key="WarningTextColor">#FFC46B</Color>
-            <Color x:Key="CriticalColor">#FF453A</Color>
-            <Color x:Key="CriticalTextColor">#FF9A93</Color>
-            <Color x:Key="CriticalStrokeColor">#FF7A72</Color>
-            <Color x:Key="MetricNetworkTintColor">#7CC0FF</Color>
+            <Color x:Key="AccentColor">#4C8DFF</Color>
+            <Color x:Key="AccentTextColor">#8CBBFF</Color>
+            <Color x:Key="SecondaryAccentColor">#C77DFF</Color>
+            <Color x:Key="SecondaryAccentTextColor">#DDB3FF</Color>
+            <Color x:Key="SuccessColor">#4ADE80</Color>
+            <Color x:Key="WarningColor">#FFB65C</Color>
+            <Color x:Key="WarningTextColor">#FFD08F</Color>
+            <Color x:Key="CriticalColor">#FF5D5D</Color>
+            <Color x:Key="CriticalTextColor">#FFA3A3</Color>
+            <Color x:Key="CriticalStrokeColor">#FF7F7F</Color>
+            <Color x:Key="MetricNetworkTintColor">#6FE3E8</Color>
 
             <!--
                 覆盖 WinUI 的标准资源键（Phase 2 第一块）：
@@ -272,4 +272,59 @@
     <Color x:Key="CriticalTintHeavyColor">#80FF453A</Color>
     <Color x:Key="CriticalTintMaxColor">#99FF453A</Color>
     <Color x:Key="CriticalForegroundPressedColor">#FFFFC2BD</Color>
+    <!-- ==================== Capsyn Prism：玻璃 / 极光 / 发光（固定深色，全局复用） ==================== -->
+    <SolidColorBrush x:Key="TextQuaternaryBrush" Color="#52FFFFFF" />
+    <SolidColorBrush x:Key="RimLightBrush" Color="#1FFFFFFF" />
+    <SolidColorBrush x:Key="RingTrackBrush" Color="#24FFFFFF" />
+    <SolidColorBrush x:Key="NavDotActiveBrush" Color="#E6FFFFFF" />
+    <SolidColorBrush x:Key="NavDotInactiveBrush" Color="#3DFFFFFF" />
+
+    <LinearGradientBrush x:Key="PanelGlassBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#16171F" Offset="0" />
+        <GradientStop Color="#0E0E15" Offset="0.55" />
+        <GradientStop Color="#07070B" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="PanelSheenBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#26FFFFFF" Offset="0" />
+        <GradientStop Color="#00FFFFFF" Offset="0.45" />
+        <GradientStop Color="#00FFFFFF" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="CardGlassBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#1FFFFFFF" Offset="0" />
+        <GradientStop Color="#0AFFFFFF" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="CardStrokeBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#38FFFFFF" Offset="0" />
+        <GradientStop Color="#12FFFFFF" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AccentAuroraBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#4C8DFF" Offset="0" />
+        <GradientStop Color="#7FE3FF" Offset="0.55" />
+        <GradientStop Color="#C77DFF" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AccentCapsuleBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#3D4C8DFF" Offset="0" />
+        <GradientStop Color="#1F7FE3FF" Offset="1" />
+    </LinearGradientBrush>
+    <RadialGradientBrush x:Key="AccentGlowBrush" Center="0.5,0.05" GradientOrigin="0.5,0.05" RadiusX="0.8" RadiusY="0.95">
+        <GradientStop Color="#664C8DFF" Offset="0" />
+        <GradientStop Color="#1F4C8DFF" Offset="0.55" />
+        <GradientStop Color="#004C8DFF" Offset="1" />
+    </RadialGradientBrush>
+    <RadialGradientBrush x:Key="WarmGlowBrush" Center="0.5,0.05" GradientOrigin="0.5,0.05" RadiusX="0.8" RadiusY="0.95">
+        <GradientStop Color="#5CFFB65C" Offset="0" />
+        <GradientStop Color="#1CFFB65C" Offset="0.55" />
+        <GradientStop Color="#00FFB65C" Offset="1" />
+    </RadialGradientBrush>
+    <RadialGradientBrush x:Key="MagentaGlowBrush" Center="0.5,0.05" GradientOrigin="0.5,0.05" RadiusX="0.8" RadiusY="0.95">
+        <GradientStop Color="#5CC77DFF" Offset="0" />
+        <GradientStop Color="#1CC77DFF" Offset="0.55" />
+        <GradientStop Color="#00C77DFF" Offset="1" />
+    </RadialGradientBrush>
+    <RadialGradientBrush x:Key="DangerGlowBrush" Center="0.5,0.05" GradientOrigin="0.5,0.05" RadiusX="0.8" RadiusY="0.95">
+        <GradientStop Color="#66FF5D5D" Offset="0" />
+        <GradientStop Color="#1EFF5D5D" Offset="0.55" />
+        <GradientStop Color="#00FF5D5D" Offset="1" />
+    </RadialGradientBrush>
+
 </ResourceDictionary>

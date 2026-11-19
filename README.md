@@ -36,6 +36,48 @@
 * 目标环境：本机运行（.NET 9 或更高 + Windows App Runtime 1.8 已安装；本机没有 .NET 9 运行时，
   靠 `Capsyn.csproj` 里的 `<RollForward>Major</RollForward>` 落到已装的 .NET 10）
 
+### 界面 v2：Prism 重做版（开发中，未发版）
+
+> 上面的「320 × 40 胶囊 / 指标卡 / 环形仪表」等描述属于 v0.3 ~ v6.1 的旧界面；
+> 工作区现在跑的是 **Prism 重做版**，尺寸和视觉以下面这段为准（功能完全保留）。
+
+**设计参考**（不只抄一家，取各家最值得学的点）：
+
+| 项目 | 借鉴的点 |
+| --- | --- |
+| [岛仔 · Daozai](https://github.com/Renly1994/xiaotang-daozai) | 收起态胶囊 / 刘海两种形态、顶部玻璃状态条、均衡器 + 一行歌词、页面点、深色玻璃的层次 |
+| [DynamicIsland-Win](https://github.com/Current-off/DynamicIsland-Win) | 三档材质的分层思路、「圆角 = min(高度/2, 28)」、阴影要真模糊不能叠矩形、设置页和胶囊共用同一套视觉语言 |
+| [crest](https://github.com/andrealo20/crest) | Liquid Glass：边缘折射 + 顶部镜面线 + 左上来光；工具条跟随指针的磁吸高光 |
+| [oyenza-studio](https://github.com/lucacadalora/oyenza-studio) | 强调色"只染到文字可读为止"的克制用法、专注计时 + 系统实时状态 |
+| [Dynamic Edge](https://github.com/EyuelEngida/dynamic-edge) | WinUI 3 原生、可停靠、全局快捷键 / 鼠标抖动召唤的桌面化适配 |
+
+**自己的东西（不是抄的）**：
+
+* 收起态左侧「活动律动」玻璃徽章（三根呼吸条）+ 缓慢明暗的 LIVE 小点 —— 让静态胶囊有生命感；
+* 音乐副岛的强调色**从专辑封面取平均色**（`BitmapDecoder` 取 8×8 缩略图 → 饱和度 / 亮度归一化），
+  进度条、均衡器、播放按钮、黑胶虚线环都跟着封面换色；
+* 黑胶虚线环在播放时**缓慢旋转**（Composition `RotationAngleInDegrees`，暂停即停）；
+* 时间工具主按钮 / 时间工具入口用「极光渐变 + 玻璃」；提醒页按类型换紫 / 橙辉光。
+
+**尺寸与布局（Prism）**：
+
+| 部件 | 尺寸 |
+| --- | --- |
+| 收起态胶囊 | 340 × 44，圆角 22；监测区宽 190 |
+| 第二计时小圆 | 44 × 44 |
+| 看板 | 600 宽 ×（指标 400 / 时间工具 470 / 设置 460 / 提醒 190 / 解压 260）高 |
+| 音乐副岛 | 360 × 与看板等高 |
+| 圆角 | 展开态 32、卡片 20、按钮 14 / 16、分段 16 |
+
+**调试钩子（截图 / 自动验证用）**：
+
+* `CAPSYN_NO_TOPMOST_WATCHDOG=1`：关掉 2 秒一次的置顶看门狗（否则 `PrintWindow` 偶发黑帧）；
+* `CAPSYN_ALERT_TEST=1`：启动后直接切到「到点提醒」视图（不真的响铃）；
+* `CAPSYN_DROP_TEST=<zip 路径>`：跳过拖拽，直接走「落点区 → 进度 → 结果」；
+* `CAPSYN_MUSIC_TEST=1`：启动后自动展开看板（有媒体会话时音乐副岛随之出现）。
+
+---
+
 ### 当前版本状态（快照）
 
 * **GitHub Latest（稳定推荐）**：tag **`v5.1.0-ExtractionKernels`** —— 时间工具 / 顶部监测区 / 铃声 / 到点提醒 / 拖拽解压（`.zip`），
@@ -942,6 +984,14 @@ git reset --hard <commit>         # 或彻底回退本地 main（危险，仅本
     ⑤ 实测（`CAPSYN_DROP_TEST`）：`sample.zip` 走 `unzip(zip)` 1 个文件 16 B、
     `sample.7z` 走 `unzip(tar)` 1 个文件 2844 B、`sample.tar.gz` 冲突时自动进 `sample\` 子目录，
     均显示「解压完成 + 路径 + 文件数」，无崩溃。
+  * `v6.2.0-Prism`（**分支 `feature/music-control`，未打 tag / 未发版**）—— **界面全部重做（Prism）**：
+    ① 收起态 340×44 玻璃胶囊：左侧活动律动徽章 + 大字 HH:mm + 秒 + 日期 / LIVE；监测区 190、第二计时小圆 44；
+    ② 看板 600 宽：玻璃材质层 + 顶部镜面线 + 强调色辉光，指标页改为三张玻璃卡（88 环）+ 时间工具大入口 + 小提示卡；
+    ③ 时间工具：分段 + 132 大进度环 + 大字读数 + 预设 / 步进 / 记一圈 + 主按钮，三种模式配色统一；
+    ④ 设置页改成卡片式铃声板块 + 说明卡；提醒页换成类型色辉光 + 大时间；解压页换成虚线玻璃落点 + 进度；
+    ⑤ 音乐副岛重做：封面主色提取（BitmapDecoder 取平均色 → 归一化饱和/亮度）作为强调色，黑胶虚线环播放时旋转，封面玻璃卡 + 细进度条；
+    ⑥ 音乐胶囊同步新样式；关掉「PrintWindow 黑帧」的调试钩子 `CAPSYN_NO_TOPMOST_WATCHDOG` 回归，新增 `CAPSYN_ALERT_TEST`。
+    ⑦ 实测：2600ms 内展开/收起、关闭按钮退出、拖拽解压、两计时胶囊 + 小圆、封面取色（QQ 音乐绿色封面）、提醒页、解压页全部正常。
   * `v6.1.0-Always-on-top.FunctionFixed`（**稳定 · 测试版**：tag + Release asset）—— **置顶看门狗**：
     ① 保留 `OverlappedPresenter` 引用，窗口显示之后再设一次 `IsAlwaysOnTop`（构造阶段那次在真正显示前不一定生效）；
     ② 新增 2 秒一次的置顶看门狗：沿 Z 序往上遍历，只要有可见窗口与岛**当前可见轮廓**

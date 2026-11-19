@@ -15,8 +15,8 @@ namespace Capsyn.Controls;
 /// </summary>
 public sealed partial class TimerDotControl : UserControl
 {
-    private const double DotSize = 40.0;
-    private const double RingThickness = 2.0;
+    private const double DotSize = 44.0;
+    private const double RingThickness = 3.0;
 
     /// <summary>上次画到哪（进度变化小于 2% 不重画）。</summary>
     private double _drawnProgress = -1;

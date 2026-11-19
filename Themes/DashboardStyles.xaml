@@ -1,203 +1,210 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    看板（DashboardIslandControl）用到的样式，从页面里抽出来集中放这里（结构整理第 ① 步，纯搬移）。
-    依据：WinUI 的 StaticResource 会沿树上溯到 Application.Resources，所以页面里照旧写
-    {StaticResource CardBorder} 即可，不需要改页面 —— 只是定义搬到了这一处，便于复用与查找。
+    Capsyn Prism —— 看板视觉体系（重做版）。
+
+    设计语言（参考多家 Windows 灵动岛项目后自定的规范）：
+      * 材质：深色玻璃 —— 顶部 1px 高光 + 渐变玻璃底 + 细描边，强调色用径向辉光；
+      * 形状：胶囊 = 高度一半，卡片 = 20，按钮 = 14/18，分段 = 16；
+      * 字阶：标题 16 SemiBold / 正文 12.5 / 说明 11 / 数字用 Cascadia Mono；
+      * 状态色：蓝（默认）· 青（网络）· 紫（闹钟）· 橙（倒计时）· 红（提醒）。
 -->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-        <!--
-            Phase 2：这组样式全部走 Themes/Tokens.xaml 的 token（不再写字面数值），
-            并补齐 Disabled 状态与卡片阴影。
-            依据：[WinUI Gallery](https://github.com/microsoft/WinUI-Gallery) 的官方控件样式
-            （按钮四态用标准资源键覆盖）+ [Materials / Fluent 层级](https://learn.microsoft.com/en-us/windows/apps/develop/ui/materials)。
-        -->
 
-        <!-- 卡片阴影：Fluent 的层级感（ThemeShadow 需要 Translation 抬 Z 才看得出来） -->
+    <!-- ==================== 玻璃卡片 ==================== -->
+    <Style x:Key="CardBorder" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource CardGlassBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource CardStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="20" />
+        <Setter Property="Padding" Value="16" />
+    </Style>
 
-        <!-- 卡片：半透明白底 + 细描边，压在看板的纯黑底上 -->
-        <Style x:Key="CardBorder" TargetType="Border">
-            <Setter Property="Background" Value="{ThemeResource CardBackgroundBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource CardBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusLarge}" />
-            <Setter Property="Padding" Value="14,12" />
-        </Style>
+    <Style x:Key="GlassCard" TargetType="Border" BasedOn="{StaticResource CardBorder}" />
 
-        <Style x:Key="CardLabel" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="{ThemeResource TypeCaptionSize}" />
-            <Setter Property="Foreground" Value="{ThemeResource TextTertiaryBrush}" />
-        </Style>
+    <Style x:Key="CardLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="CharacterSpacing" Value="40" />
+        <Setter Property="Foreground" Value="{ThemeResource TextTertiaryBrush}" />
+    </Style>
 
-        <Style x:Key="CardValue" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="{ThemeResource TypeSubtitleSize}" />
-            <Setter Property="FontFamily" Value="Cascadia Code" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-        </Style>
+    <Style x:Key="CardValue" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="22" />
+        <Setter Property="FontFamily" Value="Cascadia Mono" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        <Setter Property="IsTextScaleFactorEnabled" Value="False" />
+    </Style>
 
-        <Style x:Key="BarTrack" TargetType="Border">
-            <Setter Property="Background" Value="{ThemeResource SubtleHoverBrush}" />
-            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusSmall}" />
-        </Style>
+    <!-- ==================== 指标 / 网络 ==================== -->
+    <Style x:Key="BarTrack" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource RingTrackBrush}" />
+        <Setter Property="CornerRadius" Value="2" />
+    </Style>
 
-        <Style x:Key="BarFill" TargetType="Border">
-            <Setter Property="Background" Value="{ThemeResource MetricNetworkTintBrush}" />
-            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusSmall}" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
-        </Style>
+    <Style x:Key="BarFill" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource MetricNetworkTintBrush}" />
+        <Setter Property="CornerRadius" Value="2" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
 
-        <!-- 右下角的圆形图标按钮：40 × 40（8px 网格），只有图标没有文字，几个按钮共用这套尺寸 -->
-        <Style x:Key="IconButton" TargetType="Button">
-            <Setter Property="Width" Value="40" />
-            <Setter Property="Height" Value="40" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusPill}" />
-            <Setter Property="Background" Value="{ThemeResource CardBackgroundBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource CardBorderStrongBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-        </Style>
+    <!-- ==================== 图标按钮 ==================== -->
+    <Style x:Key="IconButton" TargetType="Button">
+        <Setter Property="Width" Value="36" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="18" />
+        <Setter Property="Background" Value="{StaticResource CardGlassBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource CardStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+    </Style>
 
-        <!-- 「关闭程序」是危险动作：在 IconButton 基础上换成红底 / 红边 -->
-        <Style x:Key="CloseIconButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
-            <Setter Property="Background" Value="{ThemeResource CriticalTintWeakBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource CriticalTintStrongBrush}" />
-        </Style>
+    <Style x:Key="CloseIconButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+        <Setter Property="Background" Value="{ThemeResource CriticalTintWeakBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource CriticalTintStrongBrush}" />
+    </Style>
 
-        <!-- 带文字的功能按钮：「时间工具」和三个工具按钮共用 -->
-        <Style x:Key="ToolButton" TargetType="Button">
-            <Setter Property="Padding" Value="{ThemeResource SpacingInsetMedium}" />
-            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusMedium}" />
-            <Setter Property="Background" Value="{ThemeResource CardBackgroundBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource CardBorderStrongBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="FontSize" Value="{ThemeResource TypeBodySize}" />
-            <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-        </Style>
+    <Style x:Key="GhostCaptionButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="6,2" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
 
-        <!--
-            三个工具按钮各一个色系（iOS 深色模式取色），一眼能区分：
-              正计时 = 蓝 #0A84FF / 倒计时 = 橙 #FF9F0A / 闹钟 = 紫 #BF5AF2
-            底色淡染（18%）+ 彩色描边 + 亮色文字，和「关闭程序」那套红是同一个做法。
-        -->
-        <Style x:Key="StopwatchToolStyle" TargetType="Button" BasedOn="{StaticResource ToolButton}">
-            <Setter Property="Background" Value="{ThemeResource AccentTintWeakBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource AccentTintStrongBrush}" />
-            <Setter Property="Foreground" Value="{ThemeResource AccentTextBrush}" />
-        </Style>
+    <!-- ==================== 带文字按钮 ==================== -->
+    <Style x:Key="ToolButton" TargetType="Button">
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="Background" Value="{StaticResource CardGlassBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource CardStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
 
-        <Style x:Key="CountdownToolStyle" TargetType="Button" BasedOn="{StaticResource ToolButton}">
-            <Setter Property="Background" Value="{ThemeResource WarningTintWeakBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource WarningTintStrongBrush}" />
-            <Setter Property="Foreground" Value="{ThemeResource WarningTextBrush}" />
-        </Style>
+    <Style x:Key="StopwatchToolStyle" TargetType="Button" BasedOn="{StaticResource ToolButton}">
+        <Setter Property="Background" Value="{ThemeResource AccentTintWeakBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource AccentTintStrongBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource AccentTextBrush}" />
+    </Style>
 
-        <Style x:Key="AlarmToolStyle" TargetType="Button" BasedOn="{StaticResource ToolButton}">
-            <Setter Property="Background" Value="{ThemeResource SecondaryAccentTintWeakBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource SecondaryAccentTintStrongBrush}" />
-            <Setter Property="Foreground" Value="{ThemeResource SecondaryAccentTextBrush}" />
-        </Style>
+    <Style x:Key="CountdownToolStyle" TargetType="Button" BasedOn="{StaticResource ToolButton}">
+        <Setter Property="Background" Value="{ThemeResource WarningTintWeakBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource WarningTintStrongBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource WarningTextBrush}" />
+    </Style>
 
-        <!--
-            把默认按钮态的刷子刷成半透明白，免得在纯黑底上出现浅色主题的灰块。
-            依据：WinUI 按钮模板用的就是这些标准资源键，覆盖它们即可统一四态（含 Disabled）。
-        -->
-        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="{ThemeResource SubtleHoverColor}" />
-        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="{ThemeResource SubtlePressedColor}" />
-        <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="{ThemeResource CardBackgroundColor}" />
-        <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{ThemeResource TextPrimaryColor}" />
-        <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="{ThemeResource TextTertiaryColor}" />
-        <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource TextSecondaryColor}" />
-        <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="{ThemeResource SubtleBorderHoverColor}" />
-        <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="{ThemeResource SubtleBorderHoverColor}" />
+    <Style x:Key="AlarmToolStyle" TargetType="Button" BasedOn="{StaticResource ToolButton}">
+        <Setter Property="Background" Value="{ThemeResource SecondaryAccentTintWeakBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource SecondaryAccentTintStrongBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource SecondaryAccentTextBrush}" />
+    </Style>
 
-        <!-- ==================== 时间工具视图（Phase 4） ==================== -->
+    <!-- 按钮四态：压成玻璃高光，而不是系统灰块 -->
+    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#1FFFFFFF" />
+    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#2BFFFFFF" />
+    <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="#0AFFFFFF" />
+    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{ThemeResource TextPrimaryColor}" />
+    <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="{ThemeResource TextTertiaryColor}" />
+    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource TextSecondaryColor}" />
+    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#45FFFFFF" />
+    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#45FFFFFF" />
 
-        <!--
-            分段控件：外面一圈卡片色边框，里面三个透明按钮 + 一条跟着模式滑动的指示条。
-            指示条的颜色（强调色系）由代码按当前模式设置 —— 正计时蓝 / 倒计时橙 / 闹钟紫。
-        -->
-        <Style x:Key="SegmentFrame" TargetType="Border">
-            <Setter Property="Background" Value="{ThemeResource CardBackgroundBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource CardBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusMedium}" />
-        </Style>
+    <!-- ==================== 时间工具 ==================== -->
+    <Style x:Key="SegmentFrame" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource CardGlassBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource CardStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="16" />
+    </Style>
 
-        <Style x:Key="SegmentButton" TargetType="Button">
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="MinHeight" Value="0" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusStandard}" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="FontSize" Value="{ThemeResource TypeBodySize}" />
-            <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-        </Style>
+    <Style x:Key="SegmentButton" TargetType="Button">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
 
-        <!-- 预设 / 闹钟加减用的小胶囊：一行四等分，高度 40 -->
-        <Style x:Key="PresetChip" TargetType="Button">
-            <Setter Property="Height" Value="40" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusMedium}" />
-            <Setter Property="Background" Value="{ThemeResource CardBackgroundBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource CardBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="FontSize" Value="{ThemeResource TypeCaptionSize}" />
-            <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-        </Style>
+    <Style x:Key="PresetChip" TargetType="Button">
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Background" Value="{StaticResource CardGlassBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource CardStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontSize" Value="11.5" />
+        <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
 
-        <!--
-            主 / 次操作按钮：高度 48、圆角 12。
-            主按钮的底色 / 描边 / 字色按模式在代码里换（蓝 / 橙 / 紫），见 ApplyModeVisuals()。
-        -->
-        <Style x:Key="PrimaryActionButton" TargetType="Button">
-            <Setter Property="Height" Value="48" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="{ThemeResource CornerRadiusMedium}" />
-            <Setter Property="Background" Value="{ThemeResource AccentTintStrongBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource AccentTintMaxBrush}" />
-            <Setter Property="Foreground" Value="{ThemeResource AccentTextBrush}" />
-            <Setter Property="FontSize" Value="{ThemeResource TypeBodySize}" />
-            <Setter Property="FontWeight" Value="{ThemeResource TypeStrongWeight}" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-        </Style>
+    <Style x:Key="PrimaryActionButton" TargetType="Button">
+        <Setter Property="Height" Value="44" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="Background" Value="{ThemeResource AccentTintStrongBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource AccentTintMaxBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource AccentTextBrush}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
 
-        <Style x:Key="SecondaryActionButton" TargetType="Button" BasedOn="{StaticResource PrimaryActionButton}">
-            <Setter Property="Background" Value="{ThemeResource CardBackgroundBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource CardBorderStrongBrush}" />
-            <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
-        </Style>
+    <Style x:Key="SecondaryActionButton" TargetType="Button" BasedOn="{StaticResource PrimaryActionButton}">
+        <Setter Property="Background" Value="{StaticResource CardGlassBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource CardStrokeBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+    </Style>
 
-        <!-- 大读数：等宽（Cascadia Code），52px；宽度固定住，数字位数变化时整组不左右跳 -->
-        <Style x:Key="HeroReadout" TargetType="TextBlock">
-            <Setter Property="FontFamily" Value="Cascadia Code" />
-            <Setter Property="FontSize" Value="52" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-            <Setter Property="IsTextScaleFactorEnabled" Value="False" />
-        </Style>
+    <!-- ==================== 文字层级 ==================== -->
+    <Style x:Key="PageTitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
 
-        <Style x:Key="HeroCaption" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="{ThemeResource TypeCaptionSize}" />
-            <Setter Property="Foreground" Value="{ThemeResource TextTertiaryBrush}" />
-        </Style>
+    <Style x:Key="PageSubtitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{ThemeResource TextTertiaryBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
 
-        <Style x:Key="ToolsTitle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="{ThemeResource TypeSubtitleSize}" />
-            <Setter Property="FontWeight" Value="{ThemeResource TypeStrongWeight}" />
-            <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
+    <Style x:Key="HeroReadout" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
+        <Setter Property="FontSize" Value="56" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        <Setter Property="IsTextScaleFactorEnabled" Value="False" />
+    </Style>
+
+    <Style x:Key="HeroCaption" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{ThemeResource TextTertiaryBrush}" />
+    </Style>
+
+    <Style x:Key="ToolsTitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
 </ResourceDictionary>

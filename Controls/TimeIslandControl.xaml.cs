@@ -77,10 +77,47 @@ public sealed partial class TimeIslandControl : UserControl
         // 启动时按当前占用状态直接摆好（不动画）。
         UpdateMonitor(animate: false);
 
+        StartIdleAnimations();
+
         _clockTimer.Start();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e) => _clockTimer.Stop();
+
+    /// <summary>
+    /// 收起态的「呼吸感」：左侧三根活动条慢速起伏，LIVE 小绿点缓慢明暗。
+    /// 只是装饰动画，不参与布局（跑在合成线程上）。
+    /// </summary>
+    private void StartIdleAnimations()
+    {
+        var bars = new[] { ClockBar1, ClockBar2, ClockBar3 };
+        var durations = new[] { 2.2, 2.9, 2.5 };
+
+        for (var i = 0; i < bars.Length; i++)
+        {
+            var visual = ElementCompositionPreview.GetElementVisual(bars[i]);
+            visual.CenterPoint = new Vector3((float)bars[i].Width / 2f, (float)bars[i].Height, 0f);
+
+            var breathe = visual.Compositor.CreateScalarKeyFrameAnimation();
+            breathe.InsertKeyFrame(0f, 0.55f);
+            breathe.InsertKeyFrame(1f, 1f);
+            breathe.Duration = TimeSpan.FromSeconds(durations[i]);
+            breathe.IterationBehavior = AnimationIterationBehavior.Forever;
+            breathe.Direction = AnimationDirection.Alternate;
+
+            visual.StartAnimation("Scale.Y", breathe);
+        }
+
+        var dot = ElementCompositionPreview.GetElementVisual(LiveDot);
+        var pulse = dot.Compositor.CreateScalarKeyFrameAnimation();
+        pulse.InsertKeyFrame(0f, 0.35f);
+        pulse.InsertKeyFrame(1f, 1f);
+        pulse.Duration = TimeSpan.FromSeconds(1.8);
+        pulse.IterationBehavior = AnimationIterationBehavior.Forever;
+        pulse.Direction = AnimationDirection.Alternate;
+
+        dot.StartAnimation(nameof(Visual.Opacity), pulse);
+    }
 
     private void OnClockTick(object? sender, object e) => ViewModel.Refresh();
 
@@ -133,6 +170,7 @@ public sealed partial class TimeIslandControl : UserControl
         PrimaryCountdownIcon.Stroke = textBrush;
         PrimaryReadout.Text = text;
         PrimaryReadout.Foreground = textBrush;
+        MonitorCaption.Text = isCountdown ? "倒计时" : "正计时";
 
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(Root, "计时中 " + text);
     }

@@ -181,6 +181,9 @@ public sealed partial class IslandShell : UserControl
         Clock.Width = _options.Width;
         Clock.Height = _options.Height;
 
+        // 音乐胶囊：和时钟胶囊等高（内容由 UpdatePillContent 决定）。
+        MusicPill.Height = _options.Height;
+
         // 第二个计时的小圆岛：尺寸固定，位置靠 Translation 摆（避免逐帧布局）。
         TimerDot.Width = _options.DotSize;
         TimerDot.Height = _options.DotSize;
@@ -295,6 +298,21 @@ public sealed partial class IslandShell : UserControl
         if (Environment.GetEnvironmentVariable("CAPSYN_PICK_TEST") == "1")
         {
             FolderPicker.SmokeTest(@"C:\Windows");
+        }
+
+        // CAPSYN_ALERT_TEST=1：直接切到「到点提醒」视图（截图 / 自动验证用，不真的响铃）。
+        if (Environment.GetEnvironmentVariable("CAPSYN_ALERT_TEST") == "1")
+        {
+            var alertTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(2600) };
+            _dropTestTimer = alertTimer;
+            alertTimer.Tick += (_, _) =>
+            {
+                alertTimer.Stop();
+                SetDashboardExpanded(true, resetView: false);
+                Dashboard.ShowAlert(TimeToolMode.Alarm);
+                Diagnostics.Log("alert test: 已切到提醒视图");
+            };
+            alertTimer.Start();
         }
 
         // CAPSYN_DROP_ORDER_TEST=1：模拟"拖进来"的**顺序**（先切落点视图 + 定高，再展开岛），

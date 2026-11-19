@@ -19,25 +19,25 @@ public sealed class IslandOptions
     // ---------------- 收起态：时间岛（胶囊） ----------------
 
     /// <summary>胶囊宽度（DIP）：没有计时占用时显示时钟的那个宽度。</summary>
-    public double Width { get; init; } = 320;
+    public double Width { get; init; } = 340;
 
     /// <summary>
     /// 胶囊宽度（DIP）：被一个计时占用时（**监测区**，时钟消失、只显示计时读数）。
     /// 比时钟窄一截，看起来更像 iOS 的 compact 状态。
     /// </summary>
-    public double MonitoringWidth { get; init; } = 172;
+    public double MonitoringWidth { get; init; } = 190;
 
     /// <summary>
     /// 「第二个计时」那颗**独立小圆岛**的直径（DIP）。
     /// 两个计时同时跑时，主位留在胶囊里，另一个变成它旁边单独的一个圆（不是塞进胶囊里）。
     /// </summary>
-    public double DotSize { get; init; } = 40;
+    public double DotSize { get; init; } = 44;
 
     /// <summary>小圆岛和胶囊之间的缝隙（DIP）。</summary>
     public double DotGap { get; init; } = 10;
 
     /// <summary>胶囊高度（DIP）。</summary>
-    public double Height { get; init; } = 40;
+    public double Height { get; init; } = 44;
 
     /// <summary>距主屏顶边的距离（DIP）。</summary>
     public double TopOffset { get; init; } = 10;
@@ -48,32 +48,32 @@ public sealed class IslandOptions
     // ---------------- 展开态：看板岛 ----------------
 
     /// <summary>看板宽度（DIP）。</summary>
-    public double ExpandedWidth { get; init; } = 550;
+    public double ExpandedWidth { get; init; } = 600;
 
     /// <summary>看板高度（DIP）：指标视图。</summary>
-    public double ExpandedHeight { get; init; } = 350;
+    public double ExpandedHeight { get; init; } = 400;
 
     /// <summary>
     /// 看板高度（DIP）：时间工具视图。
     /// 比指标视图高 80，用来放「分段控件 + 环形读数 + 预设胶囊 + 主按钮」；
     /// 切换视图时窗口区域按弹簧从 <see cref="ExpandedHeight"/> 长到这个高度（不是跳变）。
     /// </summary>
-    public double ExpandedToolsHeight { get; init; } = 430;
+    public double ExpandedToolsHeight { get; init; } = 470;
 
     /// <summary>看板高度（DIP）：设置视图（铃声板块）。</summary>
-    public double ExpandedSettingsHeight { get; init; } = 360;
+    public double ExpandedSettingsHeight { get; init; } = 460;
 
     /// <summary>看板高度（DIP）：到点提醒视图（倒计时 / 闹钟响了）。</summary>
-    public double ExpandedAlertHeight { get; init; } = 180;
+    public double ExpandedAlertHeight { get; init; } = 190;
 
     /// <summary>看板高度（DIP）：拖拽解压视图（虚线落点 + 进度 + 结果）。</summary>
-    public double ExpandedDropHeight { get; init; } = 230;
+    public double ExpandedDropHeight { get; init; } = 260;
 
     /// <summary>看板高度（DIP）：音乐视图（入口已挪到右侧副岛，这个视图现在不可达，保留给调试钩子用）。</summary>
     public double ExpandedMusicHeight { get; init; } = 268;
 
     /// <summary>音乐副岛宽度（DIP）：音乐播放时出现在看板右侧的独立小岛。</summary>
-    public double MusicSideWidth { get; init; } = 340;
+    public double MusicSideWidth { get; init; } = 360;
 
     /// <summary>音乐副岛高度（DIP）。</summary>
     public double MusicSideHeight { get; init; } = 210;
@@ -91,10 +91,10 @@ public sealed class IslandOptions
         Math.Max(ExpandedSettingsHeight, Math.Max(ExpandedAlertHeight, ExpandedDropHeight)));
 
     /// <summary>看板圆角半径（DIP）。</summary>
-    public double ExpandedCornerRadius { get; init; } = 28;
+    public double ExpandedCornerRadius { get; init; } = 32;
 
     /// <summary>胶囊与看板之间的缝隙（DIP）。想看板紧贴胶囊就改成 0。</summary>
-    public double ExpandedGap { get; init; } = 6;
+    public double ExpandedGap { get; init; } = 8;
 
     /// <summary>
     /// 回弹余量：窗口做得比看板略大，弹簧过冲时外轮廓才不会被窗口边界切掉。
@@ -135,10 +135,10 @@ public sealed class IslandOptions
     // ---------------- 时间 ----------------
 
     public string TimeFormat { get; init; } = "HH:mm:ss";
-    public double FontSize { get; init; } = 17;
+    public double FontSize { get; init; } = 30;
 
     /// <summary>时间字体，等宽。</summary>
-    public string FontFamily { get; init; } = "Cascadia Code";
+    public string FontFamily { get; init; } = "Segoe UI Variable Display";
 
     /// <summary>岛体底色。</summary>
     public string PillColor { get; init; } = "#000000";

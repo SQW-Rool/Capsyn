@@ -8,48 +8,50 @@
     mc:Ignorable="d">
 
     <!--
-        「第二个计时」的独立小圆岛：40 × 40 的圆，里面一圈 2px 进度环 + 模式图标。
-        它是一块**独立的窗口区域**（由 IslandShell 的 SetWindowRgn 并进轮廓），
-        不是塞在胶囊里的子元素；底色来自整块纯黑底板，所以这里不用画背景。
-        点一下 = 把这个计时换到主位（胶囊里）。
+        「第二个计时」独立小圆岛（44 × 44，Prism 设计）：
+          外圈轨道 + 进度弧 + 模式图标，点一下把这个计时换到主胶囊。
+        它是一块独立窗口区域（和胶囊一起并进 SetWindowRgn），底色来自外壳的纯黑底板。
     -->
     <Button
         x:Name="DotButton"
-        Width="40"
-        Height="40"
+        Width="44"
+        Height="44"
         MinWidth="0"
         MinHeight="0"
         Padding="0"
         Background="Transparent"
         BorderThickness="0"
-        CornerRadius="{ThemeResource CornerRadiusCapsule}"
+        CornerRadius="22"
         UseSystemFocusVisuals="False"
         Click="OnDotClick">
 
-        <Grid Width="40" Height="40">
-            <!-- 暗色轨道：让这个圆即使在进度很小时也读得出是"一个岛" -->
-            <Ellipse
-                Width="40"
-                Height="40"
-                Stroke="{ThemeResource SubtleHoverBrush}"
-                StrokeThickness="2" />
+        <Grid Width="44" Height="44">
+            <!-- 内圈玻璃底 -->
+            <Ellipse Width="44" Height="44" Fill="{StaticResource CardGlassBrush}" />
 
-            <!-- 进度环：Data 由代码按进度重算 -->
+            <!-- 轨道 -->
+            <Ellipse
+                Width="38"
+                Height="38"
+                Stroke="{StaticResource RingTrackBrush}"
+                StrokeThickness="3" />
+
+            <!-- 进度弧：Data 由代码按进度重算 -->
             <Path
                 x:Name="Ring"
                 Stroke="{ThemeResource AccentTextBrush}"
-                StrokeThickness="2"
+                StrokeThickness="3"
                 StrokeStartLineCap="Round"
                 StrokeEndLineCap="Round" />
 
             <!-- 模式图标 -->
             <Path
                 x:Name="StopwatchIcon"
-                Width="14"
-                Height="14"
+                Width="16"
+                Height="16"
                 Stretch="Uniform"
                 Stroke="{ThemeResource AccentTextBrush}"
-                StrokeThickness="2"
+                StrokeThickness="1.9"
                 StrokeStartLineCap="Round"
                 StrokeEndLineCap="Round"
                 HorizontalAlignment="Center"
@@ -58,11 +60,11 @@
 
             <Path
                 x:Name="CountdownIcon"
-                Width="14"
-                Height="14"
+                Width="16"
+                Height="16"
                 Stretch="Uniform"
                 Stroke="{ThemeResource WarningTextBrush}"
-                StrokeThickness="2"
+                StrokeThickness="1.9"
                 StrokeStartLineCap="Round"
                 StrokeEndLineCap="Round"
                 HorizontalAlignment="Center"

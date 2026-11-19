@@ -50,11 +50,11 @@ public sealed partial class DashboardIslandControl : UserControl
     private static readonly TimeSpan SnapDuration = MotionTokens.Instant;
 
     /// <summary>环形进度的直径与线宽（和 XAML 里的 Ellipse 保持一致）。</summary>
-    private const double RingSize = 96.0;
-    private const double RingThickness = 6.0;
+    private const double RingSize = 132.0;
+    private const double RingThickness = 5.0;
 
     /// <summary>根 Grid 的内边距（和 XAML 的 Padding="16" 保持一致）。</summary>
-    private const double PanelPadding = 16.0;
+    private const double PanelPadding = 20.0;
 
     /// <summary>页脚（两个圆形按钮）高度 + 与内容之间留的缝，用来算工具视图内容区高度。</summary>
     private const double FooterReserve = 52.0;
@@ -258,8 +258,8 @@ public sealed partial class DashboardIslandControl : UserControl
     // ---------------- 指标环形仪表 ----------------
 
     /// <summary>环形仪表直径与线宽（和 XAML 里的 132 / 10 保持一致）。</summary>
-    private const double MetricRingSize = 108.0;
-    private const double MetricRingStroke = 8.0;
+    private const double MetricRingSize = 88.0;
+    private const double MetricRingStroke = 6.0;
 
     private void OnMetricsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {

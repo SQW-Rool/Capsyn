@@ -51,44 +51,60 @@
             HorizontalAlignment="Center"
             VerticalAlignment="Top" />
 
-        <!-- 3.5) 音乐胶囊内容：音乐播放时盖在胶囊位置（时钟隐藏），显示 ♪ 歌名 -->
+        <!-- 3.5) 音乐胶囊内容：音乐播放时盖在胶囊位置（时钟隐藏），显示 ♪ 歌名 + 状态 -->
         <StackPanel
             x:Name="MusicPill"
             Orientation="Horizontal"
             Spacing="9"
             HorizontalAlignment="Center"
             VerticalAlignment="Top"
-            Height="40"
+            Height="44"
             Visibility="Collapsed"
             IsHitTestVisible="False">
 
-            <Path
-                Width="15"
-                Height="15"
-                Stretch="Uniform"
-                Stroke="{ThemeResource AccentTextBrush}"
-                StrokeThickness="{ThemeResource IconStrokeThickness}"
-                StrokeStartLineCap="Round"
-                StrokeEndLineCap="Round"
-                VerticalAlignment="Center"
-                Data="M 9.5,17.5 A 2.4,2.4 0 1 1 9.49,17.5 M 11.9,17.5 V 6.5 L 18,5 V 15 M 18,15 A 2.4,2.4 0 1 1 17.99,15" />
+            <Border
+                Width="30"
+                Height="30"
+                CornerRadius="10"
+                Background="{StaticResource AccentCapsuleBrush}"
+                BorderBrush="#33FFFFFF"
+                BorderThickness="1"
+                VerticalAlignment="Center">
 
-            <TextBlock
-                x:Name="MusicPillTitle"
-                Text=""
-                FontSize="15"
-                FontWeight="{ThemeResource TypeStrongWeight}"
-                Foreground="{ThemeResource TextPrimaryBrush}"
-                VerticalAlignment="Center"
-                TextTrimming="CharacterEllipsis"
-                MaxWidth="210" />
+                <Path
+                    Width="15"
+                    Height="15"
+                    Stretch="Uniform"
+                    Stroke="{ThemeResource AccentTextBrush}"
+                    StrokeThickness="{ThemeResource IconStrokeThickness}"
+                    StrokeStartLineCap="Round"
+                    StrokeEndLineCap="Round"
+                    Data="M 9.5,17.5 A 2.4,2.4 0 1 1 9.49,17.5 M 11.9,17.5 V 6.5 L 18,5 V 15 M 18,15 A 2.4,2.4 0 1 1 17.99,15" />
+            </Border>
 
-            <TextBlock
-                x:Name="MusicPillState"
-                Text=""
-                FontSize="12"
-                Foreground="{ThemeResource TextSecondaryBrush}"
-                VerticalAlignment="Center" />
+            <StackPanel Orientation="Vertical" VerticalAlignment="Center" Spacing="1">
+                <TextBlock
+                    x:Name="MusicPillTitle"
+                    Text=""
+                    FontSize="13"
+                    FontWeight="{ThemeResource TypeStrongWeight}"
+                    Foreground="{ThemeResource TextPrimaryBrush}"
+                    TextTrimming="CharacterEllipsis"
+                    MaxWidth="205" />
+
+                <TextBlock
+                    x:Name="MusicPillState"
+                    Text=""
+                    FontSize="9.5"
+                    CharacterSpacing="30"
+                    Foreground="{ThemeResource TextQuaternaryBrush}" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                <Rectangle Width="2.5" Height="6" RadiusX="1.25" RadiusY="1.25" Fill="{ThemeResource AccentTextBrush}" VerticalAlignment="Center" />
+                <Rectangle Width="2.5" Height="12" RadiusX="1.25" RadiusY="1.25" Fill="{ThemeResource AccentTextBrush}" VerticalAlignment="Center" />
+                <Rectangle Width="2.5" Height="8" RadiusX="1.25" RadiusY="1.25" Fill="{ThemeResource AccentTextBrush}" VerticalAlignment="Center" />
+            </StackPanel>
         </StackPanel>
 
         <!-- 4) 第二个计时的独立小圆岛（左对齐，靠 Translation 摆到胶囊左边） -->

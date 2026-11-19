@@ -8,81 +8,130 @@
     mc:Ignorable="d">
 
     <!--
-        看板岛：550 宽 ×（指标 350 / 时间工具 430）高。
-        尺寸由 IslandShell 按 IslandOptions 设置（Width / Height / Margin），这里靠 Stretch 铺满。
+        看板岛（600 宽；指标 400 / 工具 470 / 设置 420 / 提醒 190 / 解压 260 高）—— Prism 重做版。
 
-        结构（所有面板都叠在同一个单元格里，靠可见性 + 过场切换）：
-          * MetricsPanel —— 视图 1「指标」：两个环形仪表（CPU / 内存）+ 一整行网络速率 + 左下「时间工具」入口
-          * ToolsPanel   —— 视图 2「时间工具」：返回 + 标题 + 分段控件 + 环形读数 + 预设/步进 + 主按钮
-          * Divider      —— 两个视图共用的横线（位置固定，过场时不动，像岛的"下巴"）
-          * FooterLayer  —— 右下角「设置」「关闭程序」：**两个视图共用**，
-                            高度变化时跟着看板底边上下滑动（由 UpdatePanelHeight 推 Translation，不重排）
-
-        两个视图高度不同（350 / 430）：切到时间工具时整个看板按弹簧长高 80，
-        看板底的页脚跟着往下走；窗口画布按 430 一次留够，所以窗口尺寸/胶囊位置始终不用动。
-
-        过场：iOS 风格 push / pop（旧视图往一侧滑出 + 淡出、新视图从另一侧滑入 + 淡入），见 SetTimeToolsVisible()。
-
-        TODO(扩展): 通知列表 / 音乐卡片往留白区放。
-        TODO(扩展): 设置面板接在 SettingsButton 上（加 Click → 弹窗或展开一块面板）。
-        TODO(扩展): 计时中把读数同步到顶部胶囊。
+        结构：所有面板叠在同一个根 Grid 里，靠可见性 + iOS 风格 push/pop 过场切换；
+        根节点只放「材质层」（玻璃渐变 + 顶部高光 + 强调色辉光），面板内容浮在上面；
+        右下角页脚（设置 / 关闭）由代码用 Translation 贴着底边移动。
     -->
-    <Grid Padding="16" Background="{ThemeResource IslandSurfaceBrush}">
+    <Grid Padding="20" Background="Transparent">
+
+        <!-- ==================== 材质层：玻璃底 + 顶部高光 + 强调色辉光 ==================== -->
+        <Border x:Name="GlassLayer" Background="{StaticResource PanelGlassBrush}" IsHitTestVisible="False" />
+        <Rectangle
+            x:Name="TopSheen"
+            Height="1"
+            VerticalAlignment="Top"
+            HorizontalAlignment="Stretch"
+            Margin="24,0"
+            Fill="{StaticResource PanelSheenBrush}"
+            IsHitTestVisible="False" />
+        <Rectangle
+            Height="220"
+            VerticalAlignment="Top"
+            HorizontalAlignment="Stretch"
+            Fill="{StaticResource AccentGlowBrush}"
+            Opacity="0.85"
+            IsHitTestVisible="False" />
 
         <!-- ==================== 视图 1：指标 ==================== -->
-
-        <Grid
-            x:Name="MetricsPanel"
-            VerticalAlignment="Top">
+        <Grid x:Name="MetricsPanel" VerticalAlignment="Top">
             <Grid.RowDefinitions>
-                <RowDefinition Height="16" />
+                <RowDefinition Height="36" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="160" />
+                <RowDefinition Height="14" />
+                <RowDefinition Height="96" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <!-- 顶部：标题 + 采样频率 -->
+            <!-- 头部：玻璃徽章 + 标题 + LIVE -->
             <Grid Grid.Row="0">
-                <TextBlock
-                    Text="系统资源"
-                    Style="{StaticResource CardLabel}"
-                    VerticalAlignment="Center" />
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-                <TextBlock
-                    Text="每 1 秒采样"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Center"
-                    Style="{StaticResource HeroCaption}" />
+                <Border
+                    Width="34"
+                    Height="34"
+                    CornerRadius="12"
+                    Background="{StaticResource AccentCapsuleBrush}"
+                    BorderThickness="1"
+                    BorderBrush="#3DFFFFFF"
+                    VerticalAlignment="Center">
+                    <Path
+                        Width="17"
+                        Height="17"
+                        Stretch="Uniform"
+                        Stroke="{ThemeResource AccentTextBrush}"
+                        StrokeThickness="1.8"
+                        StrokeStartLineCap="Round"
+                        StrokeEndLineCap="Round"
+                        Data="M 3,14 L 7,14 L 9.5,7 L 13,19 L 15.5,14 L 21,14" />
+                </Border>
+
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="1">
+                    <TextBlock Text="系统概览" Style="{StaticResource PageTitle}" />
+                    <TextBlock Text="实时资源 · 每 1 秒采样" Style="{StaticResource PageSubtitle}" />
+                </StackPanel>
+
+                <StackPanel
+                    Grid.Column="3"
+                    Orientation="Horizontal"
+                    Spacing="6"
+                    VerticalAlignment="Center">
+                    <Ellipse Width="5" Height="5" Fill="{ThemeResource SuccessBrush}" VerticalAlignment="Center" />
+                    <TextBlock
+                        Text="LIVE · 1S"
+                        FontSize="9"
+                        CharacterSpacing="100"
+                        Foreground="{ThemeResource TextQuaternaryBrush}"
+                        VerticalAlignment="Center" />
+                </StackPanel>
             </Grid>
 
-            <!-- 内容整体垂直居中：环形仪表 → 网络 → 入口 -->
-            <StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="10">
+            <!-- 三张指标卡 -->
+            <Grid Grid.Row="2" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-                <!-- 两个环形仪表 -->
-                <Grid ColumnSpacing="24">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                <!-- 处理器 -->
+                <Border Grid.Column="0" Style="{StaticResource CardBorder}" Padding="14">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
 
-                    <!-- 处理器 -->
-                    <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                        <Grid Width="108" Height="108">
-                            <Ellipse
-                                Width="108"
-                                Height="108"
-                                Stroke="{ThemeResource SubtleHoverBrush}"
-                                StrokeThickness="8" />
+                        <Grid Grid.Row="0">
+                            <TextBlock Text="处理器" Style="{StaticResource CardLabel}" />
+                            <TextBlock
+                                Text="CPU"
+                                FontSize="9"
+                                CharacterSpacing="80"
+                                Foreground="{ThemeResource TextQuaternaryBrush}"
+                                HorizontalAlignment="Right" />
+                        </Grid>
 
+                        <Grid Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Width="88" Height="88">
+                            <Ellipse Width="88" Height="88" Stroke="{StaticResource RingTrackBrush}" StrokeThickness="6" />
                             <Path
                                 x:Name="CpuRingArc"
                                 Stroke="{ThemeResource AccentTextBrush}"
-                                StrokeThickness="8"
+                                StrokeThickness="6"
                                 StrokeStartLineCap="Round"
                                 StrokeEndLineCap="Round" />
-
                             <TextBlock
                                 Text="{x:Bind ViewModel.CpuText, Mode=OneWay}"
-                                FontSize="23"
-                                FontFamily="Cascadia Code"
+                                FontSize="22"
+                                FontFamily="Cascadia Mono"
                                 FontWeight="SemiBold"
                                 Foreground="{ThemeResource TextPrimaryBrush}"
                                 HorizontalAlignment="Center"
@@ -90,178 +139,260 @@
                         </Grid>
 
                         <TextBlock
-                            Text="处理器"
-                            Style="{StaticResource CardLabel}"
-                            HorizontalAlignment="Center"
-                            Margin="0,6,0,0" />
-                    </StackPanel>
+                            Grid.Row="2"
+                            Text="负载率"
+                            FontSize="10"
+                            Foreground="{ThemeResource TextQuaternaryBrush}"
+                            HorizontalAlignment="Center" />
+                    </Grid>
+                </Border>
 
-                    <!-- 内存 -->
-                    <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                        <Grid Width="108" Height="108">
-                            <Ellipse
-                                Width="108"
-                                Height="108"
-                                Stroke="{ThemeResource SubtleHoverBrush}"
-                                StrokeThickness="8" />
+                <!-- 内存 -->
+                <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="14">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
 
+                        <Grid Grid.Row="0">
+                            <TextBlock Text="内存" Style="{StaticResource CardLabel}" />
+                            <TextBlock
+                                Text="RAM"
+                                FontSize="9"
+                                CharacterSpacing="80"
+                                Foreground="{ThemeResource TextQuaternaryBrush}"
+                                HorizontalAlignment="Right" />
+                        </Grid>
+
+                        <Grid Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Width="88" Height="88">
+                            <Ellipse Width="88" Height="88" Stroke="{StaticResource RingTrackBrush}" StrokeThickness="6" />
                             <Path
                                 x:Name="MemoryRingArc"
                                 Stroke="{ThemeResource SecondaryAccentTextBrush}"
-                                StrokeThickness="8"
+                                StrokeThickness="6"
                                 StrokeStartLineCap="Round"
                                 StrokeEndLineCap="Round" />
 
-                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="1">
                                 <TextBlock
                                     Text="{x:Bind ViewModel.MemoryPercentText, Mode=OneWay}"
-                                    FontSize="23"
-                                    FontFamily="Cascadia Code"
+                                    FontSize="20"
+                                    FontFamily="Cascadia Mono"
                                     FontWeight="SemiBold"
                                     Foreground="{ThemeResource TextPrimaryBrush}"
                                     HorizontalAlignment="Center" />
                                 <TextBlock
                                     Text="{x:Bind ViewModel.MemoryText, Mode=OneWay}"
-                                    FontSize="9.5"
-                                    Foreground="{ThemeResource TextTertiaryBrush}"
-                                    HorizontalAlignment="Center"
-                                    Margin="0,2,0,0" />
+                                    FontSize="8.5"
+                                    Foreground="{ThemeResource TextQuaternaryBrush}"
+                                    HorizontalAlignment="Center" />
                             </StackPanel>
                         </Grid>
 
                         <TextBlock
-                            Text="内存"
-                            Style="{StaticResource CardLabel}"
-                            HorizontalAlignment="Center"
-                            Margin="0,6,0,0" />
-                    </StackPanel>
-                </Grid>
+                            Grid.Row="2"
+                            Text="占用"
+                            FontSize="10"
+                            Foreground="{ThemeResource TextQuaternaryBrush}"
+                            HorizontalAlignment="Center" />
+                    </Grid>
+                </Border>
 
-                <!-- 网络一行 -->
-                <Border
-                    x:Name="CardNetwork"
-                    Style="{StaticResource CardBorder}"
-                    Height="44"
-                    Padding="14,0">
-                    <Grid VerticalAlignment="Center">
+                <!-- 网络 -->
+                <Border x:Name="CardNetwork" Grid.Column="2" Style="{StaticResource CardBorder}" Padding="14">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid Grid.Row="0">
+                            <TextBlock Text="网络" Style="{StaticResource CardLabel}" />
+                            <TextBlock
+                                Text="NET"
+                                FontSize="9"
+                                CharacterSpacing="80"
+                                Foreground="{ThemeResource TextQuaternaryBrush}"
+                                HorizontalAlignment="Right" />
+                        </Grid>
+
+                        <StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="7">
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <TextBlock
+                                    Text="{x:Bind ViewModel.NetworkDownText, Mode=OneWay}"
+                                    FontSize="18"
+                                    FontFamily="Cascadia Mono"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource AccentTextBrush}"
+                                    VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <TextBlock
+                                    Text="{x:Bind ViewModel.NetworkUpText, Mode=OneWay}"
+                                    FontSize="13"
+                                    FontFamily="Cascadia Mono"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource SecondaryAccentTextBrush}"
+                                    VerticalAlignment="Center" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <TextBlock
+                            Grid.Row="2"
+                            Text="下行 / 上行"
+                            FontSize="10"
+                            Foreground="{ThemeResource TextQuaternaryBrush}"
+                            HorizontalAlignment="Center" />
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- 底部：时间工具入口 + 小提示 -->
+            <Grid Grid.Row="4" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="1*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 时间工具入口（玻璃 + 极光渐变） -->
+                <Button
+                    x:Name="TimeToolsButton"
+                    AutomationProperties.AutomationId="TimeToolsButton"
+                    Grid.Column="0"
+                    Padding="0"
+                    BorderThickness="1"
+                    CornerRadius="20"
+                    Background="{StaticResource AccentCapsuleBrush}"
+                    BorderBrush="#3DFFFFFF"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch"
+                    Click="OnTimeToolsClick">
+
+                    <Grid Padding="18,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="14" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock
-                            Grid.Column="0"
-                            Text="网络"
-                            Style="{StaticResource CardLabel}"
-                            VerticalAlignment="Center"
-                            Margin="0,0,16,0" />
+                        <Border
+                            Width="44"
+                            Height="44"
+                            CornerRadius="15"
+                            Background="{StaticResource AccentAuroraBrush}"
+                            VerticalAlignment="Center">
+                            <Path
+                                Width="21"
+                                Height="21"
+                                Stretch="Uniform"
+                                Stroke="#0B0B10"
+                                StrokeThickness="2"
+                                StrokeStartLineCap="Round"
+                                StrokeEndLineCap="Round"
+                                Data="M 12,3 A 9,9 0 1 1 11.99,3 M 12,12 L 12,6.5 M 12,12 L 16.5,14.5" />
+                        </Border>
 
-                        <TextBlock
-                            Grid.Column="1"
-                            Text="{x:Bind ViewModel.NetworkDownText, Mode=OneWay}"
-                            FontSize="14"
-                            FontFamily="Cascadia Code"
-                            FontWeight="SemiBold"
-                            Foreground="{ThemeResource AccentTextBrush}"
-                            VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Text="时间工具" FontSize="15" FontWeight="SemiBold" Foreground="{ThemeResource TextPrimaryBrush}" />
+                            <TextBlock
+                                Text="正计时 · 倒计时 · 闹钟"
+                                FontSize="10.5"
+                                Foreground="{ThemeResource TextTertiaryBrush}" />
+                        </StackPanel>
 
-                        <TextBlock
-                            Grid.Column="2"
-                            Text="{x:Bind ViewModel.NetworkUpText, Mode=OneWay}"
-                            FontSize="14"
-                            FontFamily="Cascadia Code"
-                            FontWeight="SemiBold"
-                            Foreground="{ThemeResource SecondaryAccentTextBrush}"
-                            VerticalAlignment="Center"
-                            HorizontalAlignment="Right" />
-                    </Grid>
-                </Border>
-
-                <!-- 时间工具入口 -->
-                <Button
-                    x:Name="TimeToolsButton"
-                    HorizontalAlignment="Left"
-                    Height="32"
-                    Padding="12,0"
-                    FontSize="12.5"
-                    Style="{StaticResource ToolButton}"
-                    Click="OnTimeToolsClick">
-
-                    <StackPanel Orientation="Horizontal" Spacing="7">
                         <Path
-                            Width="15"
-                            Height="15"
-                            Stretch="Uniform"
-                            Stroke="{ThemeResource TextPrimaryBrush}"
-                            StrokeThickness="{ThemeResource IconStrokeThickness}"
-                            StrokeStartLineCap="Round"
-                            StrokeEndLineCap="Round"
-                            Data="M 12,3 A 9,9 0 1 1 11.99,3 M 12,12 L 12,6.5 M 12,12 L 16.5,14.5" />
-                        <TextBlock
-                            Text="时间工具"
-                            FontSize="12.5"
-                            Foreground="{ThemeResource TextPrimaryBrush}"
-                            VerticalAlignment="Center" />
-                        <Path
-                            Width="10"
-                            Height="10"
-                            Margin="2,0,0,0"
+                            Grid.Column="3"
+                            Width="12"
+                            Height="12"
                             Stretch="Uniform"
                             VerticalAlignment="Center"
                             Stroke="{ThemeResource TextTertiaryBrush}"
-                            StrokeThickness="{ThemeResource IconStrokeThickness}"
+                            StrokeThickness="2"
                             StrokeStartLineCap="Round"
                             StrokeEndLineCap="Round"
                             Data="M 9,5 L 16,12 L 9,19" />
-                    </StackPanel>
+                    </Grid>
                 </Button>
-            </StackPanel>
+
+                <!-- 小提示 -->
+                <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="16,14">
+                    <StackPanel Spacing="9" VerticalAlignment="Center">
+                        <TextBlock Text="小提示" Style="{StaticResource CardLabel}" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Ellipse Width="5" Height="5" Fill="{ThemeResource AccentTextBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="悬停胶囊展开看板" FontSize="10.5" Foreground="{ThemeResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Ellipse Width="5" Height="5" Fill="{ThemeResource SecondaryAccentTextBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="压缩包拖进岛直接解压" FontSize="10.5" Foreground="{ThemeResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
         </Grid>
 
         <!-- ==================== 视图 2：时间工具 ==================== -->
-
-        <Grid
-            x:Name="ToolsPanel"
-            VerticalAlignment="Top"
-            Visibility="Collapsed">
-
+        <Grid x:Name="ToolsPanel" VerticalAlignment="Top" Visibility="Collapsed">
             <Grid.RowDefinitions>
-                <RowDefinition Height="40" />
+                <RowDefinition Height="36" />
                 <RowDefinition Height="12" />
                 <RowDefinition Height="44" />
-                <!-- 22：把下面留到 Divider（118）那儿，横线在两个视图里都同一个位置 -->
-                <RowDefinition Height="22" />
+                <RowDefinition Height="14" />
                 <RowDefinition Height="*" />
+                <RowDefinition Height="14" />
+                <RowDefinition Height="36" />
+                <RowDefinition Height="14" />
+                <RowDefinition Height="44" />
             </Grid.RowDefinitions>
 
-            <!-- 标题行：返回 + 标题 -->
+            <!-- 头部 -->
             <Grid Grid.Row="0">
-                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <Button
-                        x:Name="ToolsBackButton"
-                        Style="{StaticResource IconButton}"
-                        Click="OnTimeToolsBackClick">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-                        <!-- 左箭头 -->
-                        <Path
-                            Width="{ThemeResource IconSizeStandard}"
-                            Height="{ThemeResource IconSizeStandard}"
-                            Stretch="Uniform"
-                            Stroke="{ThemeResource TextPrimaryBrush}"
-                            StrokeThickness="{ThemeResource IconStrokeThickness}"
-                            StrokeStartLineCap="Round"
-                            StrokeEndLineCap="Round"
-                            Data="M 11,5 L 3,12 L 11,19 M 3,12 L 21,12" />
-                    </Button>
+                <Button
+                    x:Name="ToolsBackButton"
+                    AutomationProperties.AutomationId="ToolsBackButton"
+                    Style="{StaticResource IconButton}"
+                    Click="OnTimeToolsBackClick">
+                    <Path
+                        Width="{ThemeResource IconSizeStandard}"
+                        Height="{ThemeResource IconSizeStandard}"
+                        Stretch="Uniform"
+                        Stroke="{ThemeResource TextPrimaryBrush}"
+                        StrokeThickness="{ThemeResource IconStrokeThickness}"
+                        StrokeStartLineCap="Round"
+                        StrokeEndLineCap="Round"
+                        Data="M 11,5 L 3,12 L 11,19 M 3,12 L 21,12" />
+                </Button>
 
-                    <TextBlock
-                        Text="时间工具"
-                        Style="{StaticResource ToolsTitle}" />
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="1">
+                    <TextBlock Text="时间工具" Style="{StaticResource PageTitle}" />
+                    <TextBlock Text="专注 / 休息 / 到点提醒" Style="{StaticResource PageSubtitle}" />
                 </StackPanel>
+
+                <TextBlock
+                    Grid.Column="3"
+                    Text="TIMER"
+                    FontSize="9"
+                    CharacterSpacing="120"
+                    Foreground="{ThemeResource TextQuaternaryBrush}"
+                    VerticalAlignment="Center" />
             </Grid>
 
-            <!-- 分段控件：三个模式 + 一条跟着滑动的指示条（颜色跟着模式走） -->
+            <!-- 模式分段 -->
             <Grid x:Name="SegmentHost" Grid.Row="2" Height="44">
                 <Border Style="{StaticResource SegmentFrame}" />
 
@@ -277,309 +408,195 @@
                         Grid.ColumnSpan="3"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Stretch"
-                        CornerRadius="{ThemeResource CornerRadiusStandard}"
+                        CornerRadius="12"
                         Background="{ThemeResource AccentTintSoftBrush}" />
 
-                    <Button
-                        x:Name="SegmentStopwatch"
-                        Grid.Column="0"
-                        Content="正计时"
-                        Tag="0"
-                        Style="{StaticResource SegmentButton}"
-                        Click="OnSegmentClick" />
-
-                    <Button
-                        x:Name="SegmentCountdown"
-                        Grid.Column="1"
-                        Content="倒计时"
-                        Tag="1"
-                        Style="{StaticResource SegmentButton}"
-                        Click="OnSegmentClick" />
-
-                    <Button
-                        x:Name="SegmentAlarm"
-                        Grid.Column="2"
-                        Content="闹钟"
-                        Tag="2"
-                        Style="{StaticResource SegmentButton}"
-                        Click="OnSegmentClick" />
+                    <Button x:Name="SegmentStopwatch"
+                    AutomationProperties.AutomationId="SegmentStopwatch" Grid.Column="0" Content="正计时" Tag="0" Style="{StaticResource SegmentButton}" Click="OnSegmentClick" />
+                    <Button x:Name="SegmentCountdown"
+                    AutomationProperties.AutomationId="SegmentCountdown" Grid.Column="1" Content="倒计时" Tag="1" Style="{StaticResource SegmentButton}" Click="OnSegmentClick" />
+                    <Button x:Name="SegmentAlarm"
+                    AutomationProperties.AutomationId="SegmentAlarm" Grid.Column="2" Content="闹钟" Tag="2" Style="{StaticResource SegmentButton}" Click="OnSegmentClick" />
                 </Grid>
             </Grid>
 
-            <!-- 内容：环形读数 + 预设/步进 + 主按钮 -->
-            <Grid
-                x:Name="ToolsContent"
-                Grid.Row="4"
-                Margin="0,4,0,0">
-
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="10" />
-                    <RowDefinition Height="40" />
-                    <RowDefinition Height="10" />
-                    <RowDefinition Height="48" />
-                </Grid.RowDefinitions>
-
-                <!-- 读数：左边一个 96 的环（进度 + 模式图标），右边大字 + 说明 -->
-                <Grid Grid.Row="0">
-                    <StackPanel
-                        Orientation="Horizontal"
-                        Spacing="24"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center">
-
-                        <Grid Width="96" Height="96">
-                            <Ellipse
-                                Width="96"
-                                Height="96"
-                                Stroke="{ThemeResource SubtleHoverBrush}"
-                                StrokeThickness="6" />
-
-                            <!-- 进度弧：Data 由代码按 Progress 重算（Stroke 跟着模式变色） -->
-                            <Path
-                                x:Name="RingArc"
-                                Stroke="{ThemeResource AccentBrush}"
-                                StrokeThickness="6"
-                                StrokeStartLineCap="Round"
-                                StrokeEndLineCap="Round" />
-
-                            <!-- 环中心：当前模式的图标 -->
-                            <Path
-                                Width="24"
-                                Height="24"
-                                Stretch="Uniform"
-                                Stroke="{ThemeResource TextSecondaryBrush}"
-                                StrokeThickness="{ThemeResource IconStrokeThickness}"
-                                StrokeStartLineCap="Round"
-                                StrokeEndLineCap="Round"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Visibility="{x:Bind TimeTools.StopwatchIconVisibility, Mode=OneWay}"
-                                Data="M 9,4 L 15,4 M 12,4 L 12,7.2 M 12,21 A 7.2,7.2 0 1 0 11.99,21 M 12,11.5 L 12,15.2 M 12,15.2 L 15,16.8" />
-
-                            <Path
-                                Width="24"
-                                Height="24"
-                                Stretch="Uniform"
-                                Stroke="{ThemeResource TextSecondaryBrush}"
-                                StrokeThickness="{ThemeResource IconStrokeThickness}"
-                                StrokeStartLineCap="Round"
-                                StrokeEndLineCap="Round"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Visibility="{x:Bind TimeTools.CountdownIconVisibility, Mode=OneWay}"
-                                Data="M 7,3.5 L 17,3.5 M 7,20.5 L 17,20.5 M 8,4.5 C 8,9.5 12,10.5 12,12 C 12,13.5 8,14.5 8,19.5 M 16,4.5 C 16,9.5 12,10.5 12,12 C 12,13.5 16,14.5 16,19.5" />
-
-                            <Path
-                                Width="24"
-                                Height="24"
-                                Stretch="Uniform"
-                                Stroke="{ThemeResource TextSecondaryBrush}"
-                                StrokeThickness="{ThemeResource IconStrokeThickness}"
-                                StrokeStartLineCap="Round"
-                                StrokeEndLineCap="Round"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Visibility="{x:Bind TimeTools.AlarmIconVisibility, Mode=OneWay}"
-                                Data="M 12,3.2 C 8.4,3.2 6.2,6 6.2,9.6 L 6.2,14 L 4.4,17 L 19.6,17 L 17.8,14 L 17.8,9.6 C 17.8,6 15.6,3.2 12,3.2 M 10.1,20 A 2.2,2.2 0 0 0 13.9,20 M 3.4,5.6 L 6,3.2 M 20.6,5.6 L 18,3.2" />
-                        </Grid>
-
-                        <StackPanel VerticalAlignment="Center" Spacing="2">
-                            <TextBlock
-                                x:Name="TimeReadout"
-                                Text="{x:Bind TimeTools.DisplayText, Mode=OneWay}"
-                                Style="{StaticResource HeroReadout}"
-                                Width="248" />
-                            <TextBlock
-                                x:Name="TimeCaption"
-                                Text="{x:Bind TimeTools.CaptionText, Mode=OneWay}"
-                                Style="{StaticResource HeroCaption}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Grid>
-
-                <!-- 中间一行：倒计时预设 / 闹钟加减（同一个位置，按模式换） -->
-                <Grid Grid.Row="2">
-
-                    <!-- 倒计时：四个预设 -->
-                    <Grid
-                        x:Name="PresetRow"
-                        ColumnSpacing="10"
-                        Visibility="{x:Bind TimeTools.PresetsVisibility, Mode=OneWay}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <Button
-                            x:Name="PresetChip0"
-                            Grid.Column="0"
-                            Content="1 分钟"
-                            Style="{StaticResource PresetChip}"
-                            Click="OnPresetClick"
-                            Tag="0" />
-                        <Button
-                            x:Name="PresetChip1"
-                            Grid.Column="1"
-                            Content="3 分钟"
-                            Style="{StaticResource PresetChip}"
-                            Click="OnPresetClick"
-                            Tag="1" />
-                        <Button
-                            x:Name="PresetChip2"
-                            Grid.Column="2"
-                            Content="5 分钟"
-                            Style="{StaticResource PresetChip}"
-                            Click="OnPresetClick"
-                            Tag="2" />
-                        <Button
-                            x:Name="PresetChip3"
-                            Grid.Column="3"
-                            Content="10 分钟"
-                            Style="{StaticResource PresetChip}"
-                            Click="OnPresetClick"
-                            Tag="3" />
-                    </Grid>
-
-                    <!-- 闹钟：加减 1 / 5 分钟 -->
-                    <Grid
-                        x:Name="StepperRow"
-                        ColumnSpacing="10"
-                        Visibility="{x:Bind TimeTools.StepperVisibility, Mode=OneWay}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <Button
-                            x:Name="AlarmStep0"
-                            Grid.Column="0"
-                            Content="− 5 分"
-                            Style="{StaticResource PresetChip}"
-                            Click="OnAlarmStepClick"
-                            Tag="-5" />
-                        <Button
-                            x:Name="AlarmStep1"
-                            Grid.Column="1"
-                            Content="− 1 分"
-                            Style="{StaticResource PresetChip}"
-                            Click="OnAlarmStepClick"
-                            Tag="-1" />
-                        <Button
-                            x:Name="AlarmStep2"
-                            Grid.Column="2"
-                            Content="+ 1 分"
-                            Style="{StaticResource PresetChip}"
-                            Click="OnAlarmStepClick"
-                            Tag="1" />
-                        <Button
-                            x:Name="AlarmStep3"
-                            Grid.Column="3"
-                            Content="+ 5 分"
-                            Style="{StaticResource PresetChip}"
-                            Click="OnAlarmStepClick"
-                            Tag="5" />
-                    </Grid>
-
-                    <!-- 正计时：记一圈 + 上一圈读数 -->
-                    <Grid
-                        x:Name="LapRow"
-                        ColumnSpacing="10"
-                        Visibility="{x:Bind TimeTools.StopwatchToolsVisibility, Mode=OneWay}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="2*" />
-                        </Grid.ColumnDefinitions>
-
-                        <Button
-                            x:Name="LapButton"
-                            Grid.Column="0"
-                            Content="记一圈"
-                            Style="{StaticResource PresetChip}"
-                            Click="OnLapClick"
-                            IsEnabled="{x:Bind TimeTools.CanLap, Mode=OneWay}" />
-
-                        <Border
-                            Grid.Column="1"
-                            Style="{StaticResource CardBorder}"
-                            CornerRadius="{ThemeResource CornerRadiusMedium}"
-                            Padding="14,0">
-                            <StackPanel
-                                Orientation="Horizontal"
-                                Spacing="10"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Center">
-                                <TextBlock
-                                    Text="上一圈"
-                                    Style="{StaticResource HeroCaption}"
-                                    VerticalAlignment="Center" />
-                                <TextBlock
-                                    Text="{x:Bind TimeTools.LastLapText, Mode=OneWay}"
-                                    FontFamily="Cascadia Code"
-                                    FontSize="{ThemeResource TypeBodySize}"
-                                    FontWeight="SemiBold"
-                                    Foreground="{ThemeResource TextSecondaryBrush}"
-                                    VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Border>
-                    </Grid>
-                </Grid>
-
-                <!-- 主按钮 / 复位 -->
-                <Grid Grid.Row="4" ColumnSpacing="12">
+            <!-- 读数区：左侧进度环 + 右侧大字 -->
+            <Grid x:Name="ToolsContent" Grid.Row="4">
+                <Grid ColumnSpacing="22">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <Button
-                        x:Name="PrimaryButton"
-                        Grid.Column="0"
-                        Content="{x:Bind TimeTools.PrimaryText, Mode=OneWay}"
-                        Style="{StaticResource PrimaryActionButton}"
-                        Click="OnPrimaryClick" />
+                    <Grid Width="132" Height="132" Grid.Column="0" VerticalAlignment="Center">
+                        <Ellipse Width="132" Height="132" Stroke="{StaticResource RingTrackBrush}" StrokeThickness="5" />
+                        <Path
+                            x:Name="RingArc"
+                            Stroke="{ThemeResource AccentBrush}"
+                            StrokeThickness="5"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round" />
+
+                        <Path
+                            Width="26"
+                            Height="26"
+                            Stretch="Uniform"
+                            Stroke="{ThemeResource TextSecondaryBrush}"
+                            StrokeThickness="{ThemeResource IconStrokeThickness}"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Visibility="{x:Bind TimeTools.StopwatchIconVisibility, Mode=OneWay}"
+                            Data="M 9,4 L 15,4 M 12,4 L 12,7.2 M 12,21 A 7.2,7.2 0 1 0 11.99,21 M 12,11.5 L 12,15.2 M 12,15.2 L 15,16.8" />
+
+                        <Path
+                            Width="26"
+                            Height="26"
+                            Stretch="Uniform"
+                            Stroke="{ThemeResource TextSecondaryBrush}"
+                            StrokeThickness="{ThemeResource IconStrokeThickness}"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Visibility="{x:Bind TimeTools.CountdownIconVisibility, Mode=OneWay}"
+                            Data="M 7,3.5 L 17,3.5 M 7,20.5 L 17,20.5 M 8,4.5 C 8,9.5 12,10.5 12,12 C 12,13.5 8,14.5 8,19.5 M 16,4.5 C 16,9.5 12,10.5 12,12 C 12,13.5 16,14.5 16,19.5" />
+
+                        <Path
+                            Width="26"
+                            Height="26"
+                            Stretch="Uniform"
+                            Stroke="{ThemeResource TextSecondaryBrush}"
+                            StrokeThickness="{ThemeResource IconStrokeThickness}"
+                            StrokeStartLineCap="Round"
+                            StrokeEndLineCap="Round"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Visibility="{x:Bind TimeTools.AlarmIconVisibility, Mode=OneWay}"
+                            Data="M 12,3.2 C 8.4,3.2 6.2,6 6.2,9.6 L 6.2,14 L 4.4,17 L 19.6,17 L 17.8,14 L 17.8,9.6 C 17.8,6 15.6,3.2 12,3.2 M 10.1,20 A 2.2,2.2 0 0 0 13.9,20 M 3.4,5.6 L 6,3.2 M 20.6,5.6 L 18,3.2" />
+                    </Grid>
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock
+                            x:Name="TimeReadout"
+                            Text="{x:Bind TimeTools.DisplayText, Mode=OneWay}"
+                            Style="{StaticResource HeroReadout}"
+                            CharacterSpacing="-20" />
+                        <TextBlock
+                            x:Name="TimeCaption"
+                            Text="{x:Bind TimeTools.CaptionText, Mode=OneWay}"
+                            Style="{StaticResource HeroCaption}" />
+                    </StackPanel>
+                </Grid>
+            </Grid>
+
+            <!-- 模式行：预设 / 加减 / 记一圈 -->
+            <Grid Grid.Row="6">
+                <Grid x:Name="PresetRow" ColumnSpacing="10" Visibility="{x:Bind TimeTools.PresetsVisibility, Mode=OneWay}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="PresetChip0" Grid.Column="0" Content="1 分钟" Style="{StaticResource PresetChip}" Click="OnPresetClick" Tag="0" />
+                    <Button x:Name="PresetChip1" Grid.Column="1" Content="3 分钟" Style="{StaticResource PresetChip}" Click="OnPresetClick" Tag="1" />
+                    <Button x:Name="PresetChip2" Grid.Column="2" Content="5 分钟" Style="{StaticResource PresetChip}" Click="OnPresetClick" Tag="2" />
+                    <Button x:Name="PresetChip3" Grid.Column="3" Content="10 分钟" Style="{StaticResource PresetChip}" Click="OnPresetClick" Tag="3" />
+                </Grid>
+
+                <Grid x:Name="StepperRow" ColumnSpacing="10" Visibility="{x:Bind TimeTools.StepperVisibility, Mode=OneWay}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="AlarmStep0" Grid.Column="0" Content="− 5 分" Style="{StaticResource PresetChip}" Click="OnAlarmStepClick" Tag="-5" />
+                    <Button x:Name="AlarmStep1" Grid.Column="1" Content="− 1 分" Style="{StaticResource PresetChip}" Click="OnAlarmStepClick" Tag="-1" />
+                    <Button x:Name="AlarmStep2" Grid.Column="2" Content="+ 1 分" Style="{StaticResource PresetChip}" Click="OnAlarmStepClick" Tag="1" />
+                    <Button x:Name="AlarmStep3" Grid.Column="3" Content="+ 5 分" Style="{StaticResource PresetChip}" Click="OnAlarmStepClick" Tag="5" />
+                </Grid>
+
+                <Grid x:Name="LapRow" ColumnSpacing="10" Visibility="{x:Bind TimeTools.StopwatchToolsVisibility, Mode=OneWay}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="2*" />
+                    </Grid.ColumnDefinitions>
 
                     <Button
-                        x:Name="SecondaryButton"
-                        Grid.Column="1"
-                        Content="复位"
-                        Style="{StaticResource SecondaryActionButton}"
-                        Click="OnSecondaryClick" />
+                        x:Name="LapButton"
+                        Grid.Column="0"
+                        Content="记一圈"
+                        Style="{StaticResource PresetChip}"
+                        Click="OnLapClick"
+                        IsEnabled="{x:Bind TimeTools.CanLap, Mode=OneWay}" />
+
+                    <Border Grid.Column="1" Style="{StaticResource CardBorder}" CornerRadius="12" Padding="14,0">
+                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <TextBlock Text="上一圈" Style="{StaticResource HeroCaption}" VerticalAlignment="Center" />
+                            <TextBlock
+                                Text="{x:Bind TimeTools.LastLapText, Mode=OneWay}"
+                                FontFamily="Cascadia Mono"
+                                FontSize="12"
+                                FontWeight="SemiBold"
+                                Foreground="{ThemeResource TextSecondaryBrush}"
+                                VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
                 </Grid>
+            </Grid>
+
+            <!-- 主按钮 / 复位 -->
+            <Grid Grid.Row="8" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Button
+                    x:Name="PrimaryButton"
+                    AutomationProperties.AutomationId="PrimaryButton"
+                    Grid.Column="0"
+                    Content="{x:Bind TimeTools.PrimaryText, Mode=OneWay}"
+                    Style="{StaticResource PrimaryActionButton}"
+                    Click="OnPrimaryClick" />
+
+                <Button
+                    x:Name="SecondaryButton"
+                    AutomationProperties.AutomationId="SecondaryButton"
+                    Grid.Column="1"
+                    Content="复位"
+                    Style="{StaticResource SecondaryActionButton}"
+                    Click="OnSecondaryClick" />
             </Grid>
         </Grid>
 
         <!-- ==================== 视图 3：设置 ==================== -->
-
-        <Grid
-            x:Name="SettingsPanel"
-            VerticalAlignment="Top"
-            Visibility="Collapsed">
-
+        <Grid x:Name="SettingsPanel" VerticalAlignment="Top" Visibility="Collapsed">
             <Grid.RowDefinitions>
-                <RowDefinition Height="40" />
-                <RowDefinition Height="12" />
+                <RowDefinition Height="36" />
+                <RowDefinition Height="14" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="14" />
-                <RowDefinition Height="40" />
-                <RowDefinition Height="10" />
-                <RowDefinition Height="40" />
-                <RowDefinition Height="10" />
-                <RowDefinition Height="40" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <!-- 标题行：返回 + 设置 -->
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+            <!-- 头部 -->
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
                 <Button
                     x:Name="SettingsBackButton"
+                    AutomationProperties.AutomationId="SettingsBackButton"
                     Style="{StaticResource IconButton}"
                     Click="OnSettingsBackClick">
-
                     <Path
                         Width="{ThemeResource IconSizeStandard}"
                         Height="{ThemeResource IconSizeStandard}"
@@ -591,102 +608,107 @@
                         Data="M 11,5 L 3,12 L 11,19 M 3,12 L 21,12" />
                 </Button>
 
-                <TextBlock Text="设置" Style="{StaticResource ToolsTitle}" />
-            </StackPanel>
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="1">
+                    <TextBlock Text="设置" Style="{StaticResource PageTitle}" />
+                    <TextBlock Text="铃声 · 本地音频" Style="{StaticResource PageSubtitle}" />
+                </StackPanel>
 
-            <!-- 板块标题：铃声 -->
-            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                 <TextBlock
-                    Text="铃声"
-                    FontSize="{ThemeResource TypeBodySize}"
-                    FontWeight="{ThemeResource TypeStrongWeight}"
-                    Foreground="{ThemeResource TextPrimaryBrush}" />
-                <TextBlock
-                    Text="点一下即试听，默认第一个"
-                    Style="{StaticResource HeroCaption}"
+                    Grid.Column="3"
+                    Text="SETTINGS"
+                    FontSize="9"
+                    CharacterSpacing="120"
+                    Foreground="{ThemeResource TextQuaternaryBrush}"
                     VerticalAlignment="Center" />
-            </StackPanel>
-
-            <!-- 闹钟铃声：5 个内置音效 -->
-            <Grid Grid.Row="4" ColumnSpacing="8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="64" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <TextBlock
-                    Text="闹钟"
-                    Style="{StaticResource CardLabel}"
-                    VerticalAlignment="Center" />
-
-                <Button x:Name="AlarmTone0" Grid.Column="1" Style="{StaticResource PresetChip}" Click="OnAlarmToneClick" Tag="0" />
-                <Button x:Name="AlarmTone1" Grid.Column="2" Style="{StaticResource PresetChip}" Click="OnAlarmToneClick" Tag="1" />
-                <Button x:Name="AlarmTone2" Grid.Column="3" Style="{StaticResource PresetChip}" Click="OnAlarmToneClick" Tag="2" />
-                <Button x:Name="AlarmTone3" Grid.Column="4" Style="{StaticResource PresetChip}" Click="OnAlarmToneClick" Tag="3" />
-                <Button x:Name="AlarmTone4" Grid.Column="5" Style="{StaticResource PresetChip}" Click="OnAlarmToneClick" Tag="4" />
             </Grid>
 
-            <!-- 倒计时铃声：5 个内置音效 -->
-            <Grid Grid.Row="6" ColumnSpacing="8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="64" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+            <!-- 铃声卡片 -->
+            <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="16,14">
+                <StackPanel Spacing="8">
+                    <Grid Margin="0,0,0,4">
+                        <TextBlock Text="铃声" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextPrimaryBrush}" />
+                        <TextBlock
+                            Text="点一下即试听"
+                            Style="{StaticResource HeroCaption}"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center" />
+                    </Grid>
 
-                <TextBlock
-                    Text="倒计时"
-                    Style="{StaticResource CardLabel}"
-                    VerticalAlignment="Center" />
+                    <!-- 闹钟 -->
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="66" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="闹钟" Style="{StaticResource CardLabel}" VerticalAlignment="Center" />
+                        <Button x:Name="AlarmTone0" Grid.Column="1" Style="{StaticResource PresetChip}" Click="OnAlarmToneClick" Tag="0" />
+                        <Button x:Name="AlarmTone1" Grid.Column="2" Style="{StaticResource PresetChip}" Click="OnAlarmToneClick" Tag="1" />
+                        <Button x:Name="AlarmTone2" Grid.Column="3" Style="{StaticResource PresetChip}" Click="OnAlarmToneClick" Tag="2" />
+                        <Button x:Name="AlarmTone3" Grid.Column="4" Style="{StaticResource PresetChip}" Click="OnAlarmToneClick" Tag="3" />
+                        <Button x:Name="AlarmTone4" Grid.Column="5" Style="{StaticResource PresetChip}" Click="OnAlarmToneClick" Tag="4" />
+                    </Grid>
 
-                <Button x:Name="CountdownTone0" Grid.Column="1" Style="{StaticResource PresetChip}" Click="OnCountdownToneClick" Tag="0" />
-                <Button x:Name="CountdownTone1" Grid.Column="2" Style="{StaticResource PresetChip}" Click="OnCountdownToneClick" Tag="1" />
-                <Button x:Name="CountdownTone2" Grid.Column="3" Style="{StaticResource PresetChip}" Click="OnCountdownToneClick" Tag="2" />
-                <Button x:Name="CountdownTone3" Grid.Column="4" Style="{StaticResource PresetChip}" Click="OnCountdownToneClick" Tag="3" />
-                <Button x:Name="CountdownTone4" Grid.Column="5" Style="{StaticResource PresetChip}" Click="OnCountdownToneClick" Tag="4" />
-            </Grid>
+                    <!-- 倒计时 -->
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="66" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="倒计时" Style="{StaticResource CardLabel}" VerticalAlignment="Center" />
+                        <Button x:Name="CountdownTone0" Grid.Column="1" Style="{StaticResource PresetChip}" Click="OnCountdownToneClick" Tag="0" />
+                        <Button x:Name="CountdownTone1" Grid.Column="2" Style="{StaticResource PresetChip}" Click="OnCountdownToneClick" Tag="1" />
+                        <Button x:Name="CountdownTone2" Grid.Column="3" Style="{StaticResource PresetChip}" Click="OnCountdownToneClick" Tag="2" />
+                        <Button x:Name="CountdownTone3" Grid.Column="4" Style="{StaticResource PresetChip}" Click="OnCountdownToneClick" Tag="3" />
+                        <Button x:Name="CountdownTone4" Grid.Column="5" Style="{StaticResource PresetChip}" Click="OnCountdownToneClick" Tag="4" />
+                    </Grid>
 
-            <!-- 自定义：各自选一个本地音频文件（.wav / .mp3 / .m4a …） -->
-            <Grid Grid.Row="8" ColumnSpacing="8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="64" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+                    <!-- 自定义 -->
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="66" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="自定义" Style="{StaticResource CardLabel}" VerticalAlignment="Center" />
+                        <Button x:Name="AlarmCustomButton" Grid.Column="1" Style="{StaticResource PresetChip}" Click="OnAlarmCustomClick" />
+                        <Button x:Name="CountdownCustomButton" Grid.Column="2" Style="{StaticResource PresetChip}" Click="OnCountdownCustomClick" />
+                    </Grid>
+                </StackPanel>
+            </Border>
 
-                <TextBlock
-                    Text="自定义"
-                    Style="{StaticResource CardLabel}"
-                    VerticalAlignment="Center" />
+            <!-- 说明卡片 -->
+            <Border Grid.Row="4" Style="{StaticResource CardBorder}" Padding="16,14" VerticalAlignment="Top">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="说明" Style="{StaticResource CardLabel}" />
 
-                <Button
-                    x:Name="AlarmCustomButton"
-                    Grid.Column="1"
-                    Style="{StaticResource PresetChip}"
-                    Click="OnAlarmCustomClick" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Ellipse Width="5" Height="5" Fill="{ThemeResource AccentTextBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="铃声文件保存在本机，换电脑不会带走" FontSize="10.5" Foreground="{ThemeResource TextSecondaryBrush}" />
+                    </StackPanel>
 
-                <Button
-                    x:Name="CountdownCustomButton"
-                    Grid.Column="2"
-                    Style="{StaticResource PresetChip}"
-                    Click="OnCountdownCustomClick" />
-            </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Ellipse Width="5" Height="5" Fill="{ThemeResource WarningTextBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="自定义支持 wav / mp3 / m4a / flac 等常见格式" FontSize="10.5" Foreground="{ThemeResource TextSecondaryBrush}" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Ellipse Width="5" Height="5" Fill="{ThemeResource SecondaryAccentTextBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="到点提醒时看板会自动切到提醒页，铃声由岛内播放" FontSize="10.5" Foreground="{ThemeResource TextSecondaryBrush}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
         </Grid>
 
-        <!-- ==================== 视图 4：到点提醒（倒计时 / 闹钟响了） ==================== -->
-
-        <Grid
-            x:Name="AlertPanel"
-            VerticalAlignment="Top"
-            Visibility="Collapsed">
-
+        <!-- ==================== 视图 4：到点提醒 ==================== -->
+        <Grid x:Name="AlertPanel" VerticalAlignment="Top" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -696,28 +718,28 @@
             <Grid Grid.Row="0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="18" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- 左边：铃铛 / 沙漏（按类型换） -->
                 <Border
                     x:Name="AlertIconBox"
                     Width="64"
                     Height="64"
-                    CornerRadius="{ThemeResource CornerRadiusLarge}"
+                    CornerRadius="20"
                     Background="{ThemeResource SecondaryAccentTintSoftBrush}"
                     BorderBrush="{ThemeResource SecondaryAccentTintStrongBrush}"
                     BorderThickness="1"
-                    VerticalAlignment="Top">
+                    VerticalAlignment="Center">
 
                     <Grid>
                         <Path
                             x:Name="AlertBellIcon"
-                            Width="28"
-                            Height="28"
+                            Width="30"
+                            Height="30"
                             Stretch="Uniform"
                             Stroke="{ThemeResource SecondaryAccentTextBrush}"
-                            StrokeThickness="{ThemeResource IconStrokeThickness}"
+                            StrokeThickness="1.9"
                             StrokeStartLineCap="Round"
                             StrokeEndLineCap="Round"
                             HorizontalAlignment="Center"
@@ -726,11 +748,11 @@
 
                         <Path
                             x:Name="AlertHourglassIcon"
-                            Width="28"
-                            Height="28"
+                            Width="30"
+                            Height="30"
                             Stretch="Uniform"
                             Stroke="{ThemeResource WarningTextBrush}"
-                            StrokeThickness="{ThemeResource IconStrokeThickness}"
+                            StrokeThickness="1.9"
                             StrokeStartLineCap="Round"
                             StrokeEndLineCap="Round"
                             HorizontalAlignment="Center"
@@ -740,91 +762,88 @@
                     </Grid>
                 </Border>
 
-                <!-- 右边：标题 + 大字 + 说明 -->
-                <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2">
                     <TextBlock
                         x:Name="AlertTitle"
                         Text="闹钟"
-                        FontSize="{ThemeResource TypeCaptionSize}"
+                        FontSize="11"
+                        CharacterSpacing="40"
                         Foreground="{ThemeResource TextTertiaryBrush}" />
 
                     <TextBlock
                         x:Name="AlertTime"
-                        Margin="0,2,0,0"
-                        FontFamily="Cascadia Code"
-                        FontSize="34"
+                        FontFamily="Segoe UI Variable Display"
+                        FontSize="40"
                         FontWeight="SemiBold"
                         Foreground="{ThemeResource TextPrimaryBrush}"
                         IsTextScaleFactorEnabled="False" />
 
                     <TextBlock
                         x:Name="AlertCaption"
-                        Margin="0,2,0,0"
                         Text="到时间了"
-                        FontSize="{ThemeResource TypeCaptionSize}"
+                        FontSize="11"
                         Foreground="{ThemeResource SecondaryAccentTextBrush}" />
                 </StackPanel>
             </Grid>
 
-            <!-- 底部按钮：停止 /（闹钟才有）稍后 5 分钟；右下角的页脚按钮保持不动 -->
             <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Bottom">
                 <Button
                     x:Name="AlertStopButton"
                     Content="停止"
-                    Width="112"
-                    Height="40"
-                    CornerRadius="{ThemeResource CornerRadiusMedium}"
+                    Width="120"
+                    Height="42"
+                    CornerRadius="14"
                     BorderThickness="1"
                     Background="{ThemeResource SecondaryAccentTintStrongBrush}"
                     BorderBrush="{ThemeResource SecondaryAccentTintMaxBrush}"
                     Foreground="{ThemeResource SecondaryAccentTextBrush}"
-                    FontSize="{ThemeResource TypeBodySize}"
-                    FontWeight="{ThemeResource TypeStrongWeight}"
+                    FontSize="13"
+                    FontWeight="SemiBold"
                     Click="OnAlertStopClick" />
 
                 <Button
                     x:Name="AlertSnoozeButton"
                     Content="稍后 5 分钟"
-                    Width="140"
-                    Height="40"
-                    CornerRadius="{ThemeResource CornerRadiusMedium}"
+                    Width="148"
+                    Height="42"
+                    CornerRadius="14"
                     BorderThickness="1"
-                    Background="{ThemeResource CardBackgroundBrush}"
-                    BorderBrush="{ThemeResource CardBorderStrongBrush}"
+                    Background="{StaticResource CardGlassBrush}"
+                    BorderBrush="{StaticResource CardStrokeBrush}"
                     Foreground="{ThemeResource TextSecondaryBrush}"
-                    FontSize="{ThemeResource TypeBodySize}"
+                    FontSize="13"
                     Click="OnAlertSnoozeClick" />
             </StackPanel>
         </Grid>
 
         <!-- ==================== 视图 5：拖拽解压 ==================== -->
-
-        <Grid
-            x:Name="DropPanel"
-            VerticalAlignment="Top"
-            Visibility="Collapsed">
-
+        <Grid x:Name="DropPanel" VerticalAlignment="Top" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- 虚线落点区：拖进来就显示，松开就进入选择路径 -->
-            <Grid Grid.Row="0" Margin="0,10,0,10">
+            <!-- 虚线落点区 -->
+            <Grid Grid.Row="0" Margin="0,4,0,14">
+                <Border Background="{StaticResource CardGlassBrush}" CornerRadius="24" />
+
                 <Rectangle
+                    Margin="8"
                     RadiusX="20"
                     RadiusY="20"
                     Stroke="{ThemeResource AccentTextBrush}"
                     StrokeThickness="1.5"
                     StrokeDashArray="4 3"
                     StrokeDashCap="Round"
-                    Opacity="0.85" />
+                    Opacity="0.8" />
 
-                <StackPanel
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Spacing="6">
+                <Rectangle
+                    Height="150"
+                    VerticalAlignment="Top"
+                    Fill="{StaticResource AccentGlowBrush}"
+                    Opacity="0.7" />
 
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
                     <Grid Width="46" Height="46" HorizontalAlignment="Center">
                         <Path
                             x:Name="DropArchiveIcon"
@@ -841,8 +860,8 @@
                     <TextBlock
                         x:Name="DropTitle"
                         Text="松开以解压"
-                        FontSize="{ThemeResource TypeSubtitleSize}"
-                        FontWeight="{ThemeResource TypeStrongWeight}"
+                        FontSize="19"
+                        FontWeight="SemiBold"
                         Foreground="{ThemeResource TextPrimaryBrush}"
                         HorizontalAlignment="Center" />
 
@@ -858,7 +877,7 @@
                     <ProgressBar
                         x:Name="DropProgress"
                         Width="280"
-                        Height="3"
+                        Height="4"
                         Minimum="0"
                         Maximum="1"
                         Value="0"
@@ -867,7 +886,6 @@
                 </StackPanel>
             </Grid>
 
-            <!-- 底部按钮：解压完才有（打开文件夹 / 完成） -->
             <StackPanel
                 x:Name="DropActions"
                 Grid.Row="1"
@@ -880,56 +898,51 @@
                     Content="打开文件夹"
                     Height="40"
                     MinWidth="132"
-                    CornerRadius="{ThemeResource CornerRadiusMedium}"
+                    CornerRadius="13"
                     BorderThickness="1"
                     Background="{ThemeResource AccentTintStrongBrush}"
                     BorderBrush="{ThemeResource AccentTintMaxBrush}"
                     Foreground="{ThemeResource AccentTextBrush}"
-                    FontSize="{ThemeResource TypeBodySize}"
+                    FontSize="12.5"
                     Click="OnDropOpenFolderClick" />
 
                 <Button
                     x:Name="DropCloseButton"
                     Content="完成"
                     Height="40"
-                    MinWidth="112"
-                    CornerRadius="{ThemeResource CornerRadiusMedium}"
+                    MinWidth="108"
+                    CornerRadius="13"
                     BorderThickness="1"
-                    Background="{ThemeResource CardBackgroundBrush}"
-                    BorderBrush="{ThemeResource CardBorderStrongBrush}"
+                    Background="{StaticResource CardGlassBrush}"
+                    BorderBrush="{StaticResource CardStrokeBrush}"
                     Foreground="{ThemeResource TextSecondaryBrush}"
-                    FontSize="{ThemeResource TypeBodySize}"
+                    FontSize="12.5"
                     Click="OnDropCloseClick" />
             </StackPanel>
         </Grid>
 
-        <!-- ==================== 各个视图共用 ==================== -->
-
-        <!-- 横线：位置固定，只在时间工具视图里用（指标页现在是环形仪表，不需要它） -->
+        <!-- ==================== 共用：分隔线 + 页脚 ==================== -->
         <Border
             x:Name="DividerLine"
-            Height="1"
-            Margin="0,118,0,0"
+            Height="0"
+            Margin="0,0,0,0"
             VerticalAlignment="Top"
             HorizontalAlignment="Stretch"
             Visibility="Collapsed"
             Background="{ThemeResource DividerBrush}" />
 
-        <!-- 右下角：「设置」「关闭程序」；看板高度变化时整层跟着底边上下滑 -->
         <StackPanel
             x:Name="FooterLayer"
             Orientation="Horizontal"
-            Spacing="12"
+            Spacing="10"
             HorizontalAlignment="Right"
             VerticalAlignment="Bottom">
 
-            <!-- 设置：打开设置视图（铃声板块） -->
             <Button
                 x:Name="SettingsButton"
+                    AutomationProperties.AutomationId="SettingsButton"
                 Style="{StaticResource IconButton}"
                 Click="OnSettingsClick">
-
-                <!-- 设置图标：矢量路径（圆环 + 8 个齿），不依赖任何图标字体 -->
                 <Path
                     Width="{ThemeResource IconSizeStandard}"
                     Height="{ThemeResource IconSizeStandard}"
@@ -941,12 +954,11 @@
                     Data="M 12,6.8 A 5.2,5.2 0 1 1 12,17.2 A 5.2,5.2 0 1 1 12,6.8 M 17.2,12 L 21,12 M 15.68,15.68 L 18.36,18.36 M 12,17.2 L 12,21 M 8.32,15.68 L 5.64,18.36 M 6.8,12 L 3,12 M 8.32,8.32 L 5.64,5.64 M 12,6.8 L 12,3 M 15.68,8.32 L 18.36,5.64" />
             </Button>
 
-            <!-- 关闭程序：只有一个图标，真正退出应用（唯一入口） -->
             <Button
                 x:Name="CloseButton"
+                    AutomationProperties.AutomationId="CloseButton"
                 Style="{StaticResource CloseIconButton}"
                 Click="OnCloseClick">
-
                 <Button.Resources>
                     <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="{ThemeResource CriticalTintSoftColor}" />
                     <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="{ThemeResource CriticalTintMediumColor}" />
@@ -955,8 +967,6 @@
                     <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{ThemeResource CriticalTextColor}" />
                     <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource CriticalForegroundPressedColor}" />
                 </Button.Resources>
-
-                <!-- 电源图标 -->
                 <Path
                     Width="{ThemeResource IconSizeStandard}"
                     Height="{ThemeResource IconSizeStandard}"

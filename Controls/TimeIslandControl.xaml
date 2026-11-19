@@ -8,74 +8,158 @@
     mc:Ignorable="d">
 
     <!--
-        时间岛（顶部胶囊），两种形态：
-          1) 时钟（默认）：居中显示 HH:mm:ss，宽度 320；
-          2) 监测区：有正计时 / 倒计时在跑 —— **时钟消失**，改成「模式图标 + mm:ss」，宽度 172。
-
-        第二个计时**不在这里**：它是一颗独立的圆形小岛（<see cref="TimerDotControl"/>），
-        由外壳摆在胶囊左边；闹钟不算占用（见 TimeToolsViewModel）。
-
-        形态 = 内容 + 宽度：内容做 Fast 档淡入淡出 + 6px 位移；
-        宽度由外壳用弹簧插值（窗口区域跟着变），这里只发 <see cref="PreferredWidthChanged"/>。
+        收起态胶囊（340 × 44，Prism 设计）：
+          * 时钟：左侧「活动律动」玻璃徽章 + 大号 HH:mm + 秒 + 右侧日期 / LIVE；
+          * 监测区（有计时在跑）：模式图标 + 等宽读数 + 模式说明，宽度 190；
+          * 两种形态之间由代码做淡入淡出 + 位移，胶囊宽度由外壳弹簧插值。
+        背景不画：可见形状由窗口区域裁出来，底色是外壳的纯黑底板。
     -->
     <Grid x:Name="Root" Background="{x:Null}">
 
-        <!-- 1) 时钟 -->
+        <!-- ==================== 1) 时钟 ==================== -->
         <Grid x:Name="ClockView">
-            <TextBlock
-                Text="{x:Bind ViewModel.CurrentTime, Mode=OneWay}"
-                FontFamily="{x:Bind ViewModel.FontFamily}"
-                FontSize="{x:Bind ViewModel.FontSize}"
-                FontWeight="SemiBold"
-                Foreground="{x:Bind ViewModel.ForegroundBrush}"
-                IsTextScaleFactorEnabled="False"
-                HorizontalAlignment="Center"
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧：玻璃徽章 + 三根活动律动条 -->
+            <Border
+                Grid.Column="0"
+                Width="32"
+                Height="32"
+                CornerRadius="11"
+                Background="{StaticResource AccentCapsuleBrush}"
+                BorderThickness="1"
+                BorderBrush="#33FFFFFF"
                 VerticalAlignment="Center"
-                TextAlignment="Center" />
-        </Grid>
+                Margin="14,0,0,0">
 
-        <!-- 2) 监测区：主计时（模式图标 + 读数） -->
-        <Grid x:Name="MonitorView" Visibility="Collapsed">
+                <StackPanel
+                    Orientation="Horizontal"
+                    Spacing="2.5"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Height="14">
+
+                    <Rectangle x:Name="ClockBar1" Width="2.5" Height="6" RadiusX="1.25" RadiusY="1.25" Fill="{ThemeResource AccentTextBrush}" VerticalAlignment="Center" />
+                    <Rectangle x:Name="ClockBar2" Width="2.5" Height="14" RadiusX="1.25" RadiusY="1.25" Fill="{ThemeResource AccentTextBrush}" VerticalAlignment="Center" />
+                    <Rectangle x:Name="ClockBar3" Width="2.5" Height="9" RadiusX="1.25" RadiusY="1.25" Fill="{ThemeResource AccentTextBrush}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Border>
+
+            <!-- 中间：HH:mm + 秒 -->
             <StackPanel
+                Grid.Column="2"
                 Orientation="Horizontal"
-                Spacing="8"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center">
-
-                <Grid Width="16" Height="16" VerticalAlignment="Center">
-                    <Path
-                        x:Name="PrimaryStopwatchIcon"
-                        Width="16"
-                        Height="16"
-                        Stretch="Uniform"
-                        Stroke="{ThemeResource AccentTextBrush}"
-                        StrokeThickness="{ThemeResource IconStrokeThickness}"
-                        StrokeStartLineCap="Round"
-                        StrokeEndLineCap="Round"
-                        Data="M 9,4 L 15,4 M 12,4 L 12,7.2 M 12,21 A 7.2,7.2 0 1 0 11.99,21 M 12,11.5 L 12,15.2 M 12,15.2 L 15,16.8" />
-
-                    <Path
-                        x:Name="PrimaryCountdownIcon"
-                        Width="16"
-                        Height="16"
-                        Stretch="Uniform"
-                        Stroke="{ThemeResource WarningTextBrush}"
-                        StrokeThickness="{ThemeResource IconStrokeThickness}"
-                        StrokeStartLineCap="Round"
-                        StrokeEndLineCap="Round"
-                        Visibility="Collapsed"
-                        Data="M 7,3.5 L 17,3.5 M 7,20.5 L 17,20.5 M 8,4.5 C 8,9.5 12,10.5 12,12 C 12,13.5 8,14.5 8,19.5 M 16,4.5 C 16,9.5 12,10.5 12,12 C 12,13.5 16,14.5 16,19.5" />
-                </Grid>
+                VerticalAlignment="Center"
+                HorizontalAlignment="Left"
+                Spacing="3">
 
                 <TextBlock
-                    x:Name="PrimaryReadout"
-                    FontFamily="Cascadia Code"
-                    FontSize="15"
+                    Text="{x:Bind ViewModel.ClockMain, Mode=OneWay}"
+                    FontFamily="{x:Bind ViewModel.FontFamily}"
+                    FontSize="{x:Bind ViewModel.FontSize}"
                     FontWeight="SemiBold"
-                    Foreground="{ThemeResource AccentTextBrush}"
+                    CharacterSpacing="-20"
+                    Foreground="{x:Bind ViewModel.ForegroundBrush}"
                     IsTextScaleFactorEnabled="False"
                     VerticalAlignment="Center" />
+
+                <TextBlock
+                    Text="{x:Bind ViewModel.ClockSeconds, Mode=OneWay}"
+                    FontFamily="{x:Bind ViewModel.FontFamily}"
+                    FontSize="11"
+                    FontWeight="SemiBold"
+                    Foreground="{ThemeResource TextTertiaryBrush}"
+                    IsTextScaleFactorEnabled="False"
+                    VerticalAlignment="Bottom"
+                    Margin="0,0,0,7" />
             </StackPanel>
+
+            <!-- 右侧：日期 + LIVE -->
+            <StackPanel
+                Grid.Column="3"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Right"
+                Spacing="2"
+                Margin="0,0,14,0">
+
+                <TextBlock
+                    Text="{x:Bind ViewModel.DateLabel, Mode=OneWay}"
+                    FontSize="10"
+                    Foreground="{ThemeResource TextTertiaryBrush}"
+                    HorizontalAlignment="Right" />
+
+                <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right">
+                    <Ellipse x:Name="LiveDot" Width="4" Height="4" Fill="{ThemeResource SuccessBrush}" VerticalAlignment="Center" />
+                    <TextBlock
+                        Text="LIVE"
+                        FontSize="8.5"
+                        CharacterSpacing="120"
+                        Foreground="{ThemeResource TextQuaternaryBrush}"
+                        VerticalAlignment="Center" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
+        <!-- ==================== 2) 监测区（有计时占用） ==================== -->
+        <Grid x:Name="MonitorView" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="0" Width="18" Height="18" VerticalAlignment="Center" Margin="12,0,0,0">
+                <Path
+                    x:Name="PrimaryStopwatchIcon"
+                    Width="18"
+                    Height="18"
+                    Stretch="Uniform"
+                    Stroke="{ThemeResource AccentTextBrush}"
+                    StrokeThickness="1.8"
+                    StrokeStartLineCap="Round"
+                    StrokeEndLineCap="Round"
+                    Data="M 9,4 L 15,4 M 12,4 L 12,7.2 M 12,21 A 7.2,7.2 0 1 0 11.99,21 M 12,11.5 L 12,15.2 M 12,15.2 L 15,16.8" />
+
+                <Path
+                    x:Name="PrimaryCountdownIcon"
+                    Width="18"
+                    Height="18"
+                    Stretch="Uniform"
+                    Stroke="{ThemeResource WarningTextBrush}"
+                    StrokeThickness="1.8"
+                    StrokeStartLineCap="Round"
+                    StrokeEndLineCap="Round"
+                    Visibility="Collapsed"
+                    Data="M 7,3.5 L 17,3.5 M 7,20.5 L 17,20.5 M 8,4.5 C 8,9.5 12,10.5 12,12 C 12,13.5 8,14.5 8,19.5 M 16,4.5 C 16,9.5 12,10.5 12,12 C 12,13.5 16,14.5 16,19.5" />
+            </Grid>
+
+            <TextBlock
+                x:Name="PrimaryReadout"
+                Grid.Column="2"
+                FontFamily="Cascadia Mono"
+                FontSize="20"
+                FontWeight="SemiBold"
+                Foreground="{ThemeResource AccentTextBrush}"
+                IsTextScaleFactorEnabled="False"
+                VerticalAlignment="Center"
+                CharacterSpacing="-30" />
+
+            <TextBlock
+                x:Name="MonitorCaption"
+                Grid.Column="4"
+                Text="正计时"
+                FontSize="10"
+                Foreground="{ThemeResource TextTertiaryBrush}"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Right"
+                Margin="0,0,12,0" />
         </Grid>
     </Grid>
 </UserControl>

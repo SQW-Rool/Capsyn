@@ -463,6 +463,14 @@ internal sealed class IslandWindowStyler
             return;
         }
 
+        // 调试钩子（截图 / 录屏用）：置顶看门狗每 2 秒 SetWindowPos 一次，
+        // 会让 PrintWindow 偶发抓到黑帧。CAPSYN_NO_TOPMOST_WATCHDOG=1 时不启动。
+        if (Environment.GetEnvironmentVariable("CAPSYN_NO_TOPMOST_WATCHDOG") == "1")
+        {
+            Diagnostics.Log("topmost[watchdog]: 已禁用（CAPSYN_NO_TOPMOST_WATCHDOG=1）");
+            return;
+        }
+
         _topMostWatchdog = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _topMostWatchdog.Tick += OnTopMostWatchdogTick;
         _topMostWatchdog.Start();
